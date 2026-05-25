@@ -1,0 +1,71 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  body {
+    background: linear-gradient(160deg, #FAFAF8 0%, #F0FDF9 100%);
+    min-height: 100vh;
+    @apply text-at-ink;
+    font-family: 'Inter', system-ui, sans-serif;
+    -webkit-font-smoothing: antialiased;
+  }
+}
+
+@layer components {
+  .btn-primary {
+    @apply bg-gradient-teal text-white font-display text-base px-8 py-3.5
+           rounded-pill shadow-glow
+           hover:opacity-90 hover:scale-[1.02] active:scale-[0.98]
+           transition-all duration-150 cursor-pointer;
+  }
+
+  .btn-secondary {
+    @apply bg-white text-at-plum border border-at-border font-display text-base
+           px-8 py-3.5 rounded-pill shadow-card
+           hover:border-at-teal hover:shadow-glow hover:scale-[1.02]
+           active:scale-[0.98] transition-all duration-150 cursor-pointer;
+  }
+
+  .btn-ghost {
+    @apply text-at-teal font-body text-sm underline underline-offset-4
+           hover:text-at-gold transition-colors cursor-pointer;
+  }
+
+  .card {
+    @apply bg-white rounded-3xl border border-at-border p-6 shadow-card;
+  }
+
+  .card-teal {
+    @apply bg-gradient-to-br from-at-teal3 to-white rounded-3xl border border-at-teal/20 p-6 shadow-soft;
+  }
+
+  .card-gold {
+    @apply bg-gradient-to-br from-at-gold2 to-white rounded-3xl border border-at-gold/20 p-6;
+  }
+
+  .input {
+    @apply w-full border border-at-border rounded-2xl px-4 py-3
+           text-sm text-at-ink bg-white placeholder:text-at-muted
+           focus:outline-none focus:border-at-teal focus:shadow-glow
+           transition-all font-body;
+  }
+
+  .section-label {
+    @apply text-xs tracking-[0.15em] uppercase text-at-muted font-body font-semibold;
+  }
+
+  .page-bg { @apply min-h-screen; background: linear-gradient(160deg, #FAFAF8 0%, #F0FDF9 100%); }
+
+  /* Status badges */
+  .badge { @apply inline-flex items-center px-3 py-1 rounded-pill text-xs font-body font-semibold; }
+  .badge-active    { @apply bg-at-teal3 text-at-teal; }
+  .badge-planning  { @apply bg-at-gold2 text-at-gold; }
+  .badge-wrap      { @apply bg-purple-100 text-purple-700; }
+  .badge-complete  { @apply bg-emerald-100 text-emerald-700; }
+  .badge-cancelled { @apply bg-gray-100 text-gray-500; }
+}
+
+::-webkit-scrollbar { width: 4px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: #CCFBF1; border-radius: 9999px; }
