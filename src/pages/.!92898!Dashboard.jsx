@@ -15,7 +15,7 @@ const STATUS_BADGE = {
 }
 
 export default function Dashboard() {
-  const { user, signInWithGoogle, signOut, crossAppUrl } = useAuthStore()
+  const { user, signInWithGoogle, signOut } = useAuthStore()
   const [projects, setProjects]   = useState([])
   const [goals, setGoals]         = useState([])
   const [showAuth, setShowAuth]   = useState(false)
@@ -144,7 +144,7 @@ export default function Dashboard() {
                   { url: 'https://glowup.ritualware.app', label: 'Glow Up 🔺' },
                   { url: 'https://where.ritualware.app',                            label: 'Ritualwhere? 📍' },
                 ].map(app => (
-                  <a key={app.url} href={crossAppUrl(app.url)}
+                  <a key={app.url} href={app.url}
                     className="bg-at-warm border border-at-border text-at-plum text-xs font-body px-4 py-2 rounded-pill hover:border-at-teal transition-colors">
                     {app.label}
                   </a>
