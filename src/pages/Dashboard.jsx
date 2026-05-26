@@ -140,9 +140,9 @@ export default function Dashboard() {
               <p className="section-label mb-3">The full suite</p>
               <div className="flex justify-center gap-3 flex-wrap">
                 {[
-                  { url: 'https://vile-style-oracle.vercel.app',                      label: 'Ritualwear 👗' },
-                  { url: 'https://glow-jdebrhgz1-thevillanelles-projects.vercel.app', label: 'Glow Up 🔺' },
-                  { url: 'https://ritualwhere.vercel.app',                            label: 'Ritualwhere? 📍' },
+                  { url: 'https://wear.ritualware.app',                      label: 'Ritualwear 👗' },
+                  { url: 'https://glowup.ritualware.app', label: 'Glow Up 🔺' },
+                  { url: 'https://where.ritualware.app',                            label: 'Ritualwhere? 📍' },
                 ].map(app => (
                   <a key={app.url} href={app.url}
                     className="bg-at-warm border border-at-border text-at-plum text-xs font-body px-4 py-2 rounded-pill hover:border-at-teal transition-colors">
