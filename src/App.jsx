@@ -9,6 +9,7 @@ import Projects     from './pages/Projects'
 import Circle       from './pages/Circle'
 import Skills       from './pages/Skills'
 import Goals        from './pages/Goals'
+import Discover     from './pages/Discover'
 import AuthCallback from './pages/AuthCallback'
 
 export default function App() {
@@ -25,6 +26,7 @@ export default function App() {
         <Route path="/circle"        element={<Circle />} />
         <Route path="/skills"        element={<Skills />} />
         <Route path="/goals"         element={<Goals />} />
+        <Route path="/discover"      element={<Discover />} />
         <Route path="/auth/callback" element={<AuthCallback />} />
         <Route path="*"              element={<Navigate to="/" replace />} />
       </Routes>
