@@ -15,7 +15,7 @@ const STATUS_BADGE = {
 }
 
 export default function Dashboard() {
-  const { user, signInWithGoogle, signOut } = useAuthStore()
+  const { user, signOut } = useAuthStore()
   const [projects, setProjects]   = useState([])
   const [goals, setGoals]         = useState([])
   const [showAuth, setShowAuth]   = useState(false)
@@ -69,6 +69,17 @@ export default function Dashboard() {
 
         {user && !loading && (
           <>
+            {/* Discover CTA */}
+            <Link to="/discover" className="block mb-8">
+              <div className="card-gold p-5 flex items-center justify-between group hover:-translate-y-0.5 hover:shadow-soft transition-all duration-200">
+                <div>
+                  <p className="font-display text-at-ink text-xl mb-0.5">Discover a new project ✦</p>
+                  <p className="text-at-muted text-xs font-body">Answer a few questions. We'll build it with you.</p>
+                </div>
+                <span className="text-at-gold text-2xl group-hover:translate-x-1 transition-transform duration-200">→</span>
+              </div>
+            </Link>
+
             {/* Active projects */}
             <div className="mb-8">
               <div className="flex items-center justify-between mb-4">
@@ -121,10 +132,10 @@ export default function Dashboard() {
             <p className="section-label mb-4">Your studio</p>
             <div className="grid grid-cols-2 gap-3 mb-8">
               {[
-                { to: '/projects', emoji: '📋', label: 'Projects', desc: 'What you\'re building' },
+                { to: '/projects', emoji: '📋', label: 'Projects',  desc: 'What you\'re building' },
                 { to: '/circle',   emoji: '👥', label: 'My Circle', desc: 'The people in your life' },
-                { to: '/skills',   emoji: '🧠', label: 'Skills',   desc: 'What you know' },
-                { to: '/goals',    emoji: '🎯', label: 'Goals',    desc: 'Where you\'re going' },
+                { to: '/skills',   emoji: '🧠', label: 'Skills',    desc: 'What you know' },
+                { to: '/goals',    emoji: '🎯', label: 'Goals',     desc: 'Where you\'re going' },
               ].map(item => (
                 <Link key={item.to} to={item.to}
                   className="card hover:-translate-y-1 hover:shadow-soft transition-all duration-150">
@@ -140,9 +151,9 @@ export default function Dashboard() {
               <p className="section-label mb-3">The full suite</p>
               <div className="flex justify-center gap-3 flex-wrap">
                 {[
-                  { url: 'https://wear.ritualware.app',                      label: 'Ritualwear 👗' },
+                  { url: 'https://wear.ritualware.app',  label: 'Ritualwear 👗' },
                   { url: 'https://glowup.ritualware.app', label: 'Glow Up 🔺' },
-                  { url: 'https://where.ritualware.app',                            label: 'Ritualwhere? 📍' },
+                  { url: 'https://where.ritualware.app',  label: 'Ritualwhere? 📍' },
                 ].map(app => (
                   <a key={app.url} href={app.url}
                     className="bg-at-warm border border-at-border text-at-plum text-xs font-body px-4 py-2 rounded-pill hover:border-at-teal transition-colors">
@@ -159,4 +170,3 @@ export default function Dashboard() {
     </div>
   )
 }
-
