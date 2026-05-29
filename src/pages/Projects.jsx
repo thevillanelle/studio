@@ -10,6 +10,121 @@ const STATUS_LABELS = { active: 'Active', planning: 'Planning', wrap: 'Wrapping 
 
 const EMPTY = { name: '', status: 'active', objective: '', task_1: '', task_2: '', task_3: '', end_date: '', link: '', notes: '' }
 
+const TEMPLATES = [
+  {
+    emoji: '🏠',
+    name: 'Home Maintenance',
+    tagline: 'Your space, tended.',
+    template: {
+      name: 'Home Maintenance',
+      status: 'active',
+      objective: 'Keep my home running smoothly — nothing falls through the cracks.',
+      task_1: 'Audit what needs fixing or replacing',
+      task_2: 'Schedule seasonal maintenance (HVAC, deep clean, etc.)',
+      task_3: 'Build a go-to vendor list',
+      notes: 'Ongoing ritual. Revisit monthly.',
+    },
+  },
+  {
+    emoji: '💼',
+    name: 'Work Project',
+    tagline: 'Focused. Intentional. Done.',
+    template: {
+      name: 'Work Project',
+      status: 'planning',
+      objective: 'Deliver a specific work outcome with clarity and momentum.',
+      task_1: 'Define the goal and success criteria',
+      task_2: 'Identify stakeholders and dependencies',
+      task_3: 'Set a realistic deadline and first milestone',
+      notes: '',
+    },
+  },
+  {
+    emoji: '🔺',
+    name: 'Body Project',
+    tagline: 'Your body is a ritual.',
+    template: {
+      name: 'Body Project',
+      status: 'active',
+      objective: 'Build a relationship with my body that is consistent, intentional, and mine.',
+      task_1: 'Define the goal — strength, endurance, flexibility, or all three',
+      task_2: 'Set a weekly movement schedule',
+      task_3: 'Track progress monthly — not daily',
+      notes: 'This is a lifestyle, not a phase.',
+    },
+  },
+  {
+    emoji: '🗓️',
+    name: 'Maintenance Schedule',
+    tagline: 'Life, managed like a pro.',
+    template: {
+      name: 'Maintenance Schedule',
+      status: 'active',
+      objective: 'Stay on top of the recurring things that keep life running: appointments, renewals, admin.',
+      task_1: 'List all recurring tasks (annual, quarterly, monthly)',
+      task_2: 'Set calendar reminders for each',
+      task_3: 'Review and adjust every quarter',
+      notes: 'Think: dentist, car, subscriptions, passport, insurance.',
+    },
+  },
+  {
+    emoji: '📅',
+    name: 'Editorial Calendar',
+    tagline: 'Your life, curated.',
+    template: {
+      name: 'Editorial Calendar',
+      status: 'planning',
+      objective: 'Plan content and life moments with editorial intention — nothing reactive.',
+      task_1: 'Map out the next 90 days of themes or moments',
+      task_2: 'Assign content formats per week (post, story, essay, etc.)',
+      task_3: 'Batch-create and schedule at least 2 weeks ahead',
+      notes: 'Treat your life like a magazine. Every issue is intentional.',
+    },
+  },
+  {
+    emoji: '✨',
+    name: 'Personal Glow Up',
+    tagline: 'A season of becoming.',
+    template: {
+      name: 'Personal Glow Up',
+      status: 'active',
+      objective: 'Show up as the most refined, intentional version of myself this season.',
+      task_1: 'Define what "glowed up" looks, feels, and sounds like',
+      task_2: 'Identify three areas: physical, mental, social',
+      task_3: 'Choose one non-negotiable habit per area',
+      notes: 'This is a vibe, not a checklist.',
+    },
+  },
+  {
+    emoji: '💰',
+    name: 'Money Move',
+    tagline: 'Know where every dollar goes.',
+    template: {
+      name: 'Money Move',
+      status: 'planning',
+      objective: 'Make a deliberate, strategic move with my money — saving, investing, or eliminating.',
+      task_1: 'Audit current income, expenses, and leaks',
+      task_2: 'Set a specific financial goal with a number and a date',
+      task_3: 'Automate at least one savings or investment action',
+      notes: 'Money is a tool. Use it with intention.',
+    },
+  },
+  {
+    emoji: '🌆',
+    name: 'City Life',
+    tagline: 'The city is yours. Claim it.',
+    template: {
+      name: 'City Life',
+      status: 'active',
+      objective: 'Engage with the city intentionally — culturally, socially, and physically.',
+      task_1: 'Make a list of 10 things to do, eat, or see this season',
+      task_2: 'Plan one solo outing and one social outing per month',
+      task_3: 'Explore one new neighborhood',
+      notes: 'You live here. Act like it.',
+    },
+  },
+]
+
 export default function Projects() {
   const { user } = useAuthStore()
   const [projects, setProjects] = useState([])
@@ -18,6 +133,7 @@ export default function Projects() {
   const [form, setForm]         = useState(EMPTY)
   const [expanded, setExpanded] = useState(null)
   const [loading, setLoading]   = useState(true)
+  const [showTemplates, setShowTemplates] = useState(false)
 
   useEffect(() => { if (user) load() }, [user])
 
@@ -46,7 +162,8 @@ export default function Projects() {
   }
 
   const startEdit = (p) => { setForm(p); setEditing(p.id) }
-  const startNew  = ()  => { setForm(EMPTY); setEditing('new') }
+  const startNew  = ()  => { setForm(EMPTY); setEditing('new'); setShowTemplates(false) }
+  const useTemplate = (t) => { setForm({ ...EMPTY, ...t.template }); setEditing('new'); setShowTemplates(false) }
 
   const filtered = filter === 'all' ? projects : projects.filter(p => p.status === filter)
   const counts   = STATUSES.reduce((a, s) => ({ ...a, [s]: projects.filter(p => p.status === s).length }), {})
@@ -56,7 +173,45 @@ export default function Projects() {
       <PageHeader title="Projects 📋" backTo="/dashboard" />
       <main className="px-6 py-8 max-w-2xl mx-auto">
 
-        {/* Stats */}
+        {/* Action buttons */}
+        <div className="flex gap-3 mb-6">
+          <button onClick={startNew} className="btn-primary flex-1">+ New project</button>
+          <button
+            onClick={() => { setShowTemplates(t => !t); setEditing(null) }}
+            className={`btn-secondary flex-1 ${showTemplates ? 'border-at-teal text-at-teal' : ''}`}
+          >
+            {showTemplates ? 'Hide templates' : 'Start from template ✦'}
+          </button>
+        </div>
+
+        {/* Template grid */}
+        <AnimatePresence>
+          {showTemplates && (
+            <motion.div
+              initial={{ opacity: 0, y: -8 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -8 }}
+              className="mb-8"
+            >
+              <p className="section-label mb-4">Choose a template</p>
+              <div className="grid grid-cols-2 gap-3">
+                {TEMPLATES.map((t) => (
+                  <button
+                    key={t.name}
+                    onClick={() => useTemplate(t)}
+                    className="card text-left hover:-translate-y-1 hover:shadow-soft transition-all duration-150 group"
+                  >
+                    <span className="text-2xl block mb-2">{t.emoji}</span>
+                    <p className="font-display text-at-ink text-lg leading-tight mb-0.5">{t.name}</p>
+                    <p className="text-xs text-at-muted font-body group-hover:text-at-teal transition-colors">{t.tagline}</p>
+                  </button>
+                ))}
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+
+        {/* Status filters */}
         <div className="flex gap-2 overflow-x-auto mb-6 pb-1">
           <button onClick={() => setFilter('all')}
             className={`flex-shrink-0 px-4 py-2 rounded-pill text-xs font-body font-semibold border transition-all ${filter === 'all' ? 'bg-at-teal text-white border-at-teal' : 'bg-white border-at-border text-at-muted hover:border-at-teal'}`}>
@@ -70,8 +225,6 @@ export default function Projects() {
             </button>
           ))}
         </div>
-
-        <button onClick={startNew} className="btn-primary w-full mb-6">+ New project</button>
 
         {/* Add / Edit form */}
         <AnimatePresence>
