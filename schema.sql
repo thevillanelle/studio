@@ -214,3 +214,18 @@ ALTER TABLE reinvention_plans ENABLE ROW LEVEL SECURITY;
 DROP POLICY IF EXISTS "Users can manage own reinvention plans" ON reinvention_plans;
 CREATE POLICY "Users can manage own reinvention plans" ON reinvention_plans FOR ALL USING (auth.uid() = user_id);
 CREATE INDEX IF NOT EXISTS idx_reinvention_plans_user_id ON reinvention_plans(user_id);
+
+-- ─────────────────────────────────────────────────────────────
+-- TABLE: glow_up_results (Glow Up — audit results)
+-- ─────────────────────────────────────────────────────────────
+CREATE TABLE IF NOT EXISTS glow_up_results (
+  id          UUID        PRIMARY KEY DEFAULT uuid_generate_v4(),
+  user_id     UUID        NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+  answers     JSONB,
+  result      JSONB,
+  created_at  TIMESTAMPTZ DEFAULT NOW()
+);
+ALTER TABLE glow_up_results ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "Users can manage own glow up results" ON glow_up_results;
+CREATE POLICY "Users can manage own glow up results" ON glow_up_results FOR ALL USING (auth.uid() = user_id);
+CREATE INDEX IF NOT EXISTS idx_glow_up_results_user_id ON glow_up_results(user_id);
