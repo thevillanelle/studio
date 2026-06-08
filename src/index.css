@@ -1,71 +1,196 @@
+@import url('https://fonts.googleapis.com/css2?family=Josefin+Sans:ital,wght@0,300;0,400;0,600;1,300;1,400&family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;1,9..40,300&display=swap');
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
+/* ── NYC (default) — Warm Paper ── */
+:root {
+  --bg: #F2EDE6;
+  --bg-gradient: #F2EDE6;
+  --ink: #1a1008;
+  --ink-muted: #6B5A40;
+  --accent: #C8A86B;
+  --accent-2: #8FA688;
+  --card-bg: rgba(255,252,248,0.9);
+  --card-border: rgba(200,168,107,0.2);
+  --noise: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.05'/%3E%3C/svg%3E");
+  --stripe: repeating-linear-gradient(0deg,transparent,transparent 3px,rgba(0,0,0,0.008) 3px,rgba(0,0,0,0.008) 4px);
+}
+
+/* Paris — dusty rose, haussmann cream */
+:root.paris {
+  --bg: #F5EEE8;
+  --bg-gradient: linear-gradient(160deg, #F5EEE8 0%, #EDE0D8 100%);
+  --ink: #2D1A14;
+  --ink-muted: #8A5A50;
+  --accent: #C47A6B;
+  --accent-2: #A89880;
+  --card-bg: rgba(255,248,244,0.9);
+  --card-border: rgba(196,122,107,0.2);
+}
+
+/* Tokyo — soft pink + grey */
+:root.tokyo {
+  --bg: #FAF0F5;
+  --bg-gradient: linear-gradient(160deg, #FAF0F5 0%, #F0E8F5 100%);
+  --ink: #1a0a1a;
+  --ink-muted: #7A5A78;
+  --accent: #C87AAA;
+  --accent-2: #A890B8;
+  --card-bg: rgba(255,248,252,0.9);
+  --card-border: rgba(200,122,170,0.2);
+}
+
+/* London — slate, fog, charcoal */
+:root.london {
+  --bg: #EAEEF2;
+  --bg-gradient: linear-gradient(160deg, #EAEEF2 0%, #DDE4EC 100%);
+  --ink: #0a1020;
+  --ink-muted: #5A6478;
+  --accent: #6080A8;
+  --accent-2: #8090A8;
+  --card-bg: rgba(248,252,255,0.9);
+  --card-border: rgba(96,128,168,0.2);
+}
+
+/* Lagos — warm terracotta, earth */
+:root.lagos {
+  --bg: #F5EAD8;
+  --bg-gradient: linear-gradient(160deg, #F5EAD8 0%, #EDDBC4 100%);
+  --ink: #1a0800;
+  --ink-muted: #7A4820;
+  --accent: #C87840;
+  --accent-2: #A89068;
+  --card-bg: rgba(255,248,238,0.9);
+  --card-border: rgba(200,120,64,0.2);
+}
+
+/* Seoul — clean white, minimal neon accent */
+:root.seoul {
+  --bg: #F8F8FA;
+  --bg-gradient: linear-gradient(160deg, #F8F8FA 0%, #F0F0F8 100%);
+  --ink: #0a0a18;
+  --ink-muted: #5A5A78;
+  --accent: #5040FF;
+  --accent-2: #FF4090;
+  --card-bg: rgba(255,255,255,0.95);
+  --card-border: rgba(80,64,255,0.15);
+}
+
 @layer base {
   body {
-    background: linear-gradient(160deg, #FAFAF8 0%, #F0FDF9 100%);
+    background: var(--bg-gradient);
+    background-image: var(--noise), var(--stripe);
+    background-color: var(--bg);
     min-height: 100vh;
-    @apply text-at-ink;
-    font-family: 'Inter', system-ui, sans-serif;
+    color: var(--ink);
+    font-family: 'DM Sans', system-ui, sans-serif;
     -webkit-font-smoothing: antialiased;
+    transition: background 0.4s ease, color 0.3s ease;
   }
 }
 
 @layer components {
   .btn-primary {
-    @apply bg-gradient-teal text-white font-display text-base px-8 py-3.5
-           rounded-pill shadow-glow
+    @apply text-white font-display text-base px-8 py-3.5 rounded-pill
            hover:opacity-90 hover:scale-[1.02] active:scale-[0.98]
-           transition-all duration-150 cursor-pointer;
+           transition-all duration-150 cursor-pointer border-0;
+    font-family: 'Josefin Sans', sans-serif;
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    background: var(--accent);
+    box-shadow: 0 4px 20px color-mix(in srgb, var(--accent) 30%, transparent);
   }
 
   .btn-secondary {
-    @apply bg-white text-at-plum border border-at-border font-display text-base
-           px-8 py-3.5 rounded-pill shadow-card
-           hover:border-at-teal hover:shadow-glow hover:scale-[1.02]
-           active:scale-[0.98] transition-all duration-150 cursor-pointer;
+    @apply font-display text-base px-8 py-3.5 rounded-pill
+           hover:scale-[1.02] active:scale-[0.98] transition-all duration-150 cursor-pointer;
+    font-family: 'Josefin Sans', sans-serif;
+    font-weight: 400;
+    letter-spacing: 0.06em;
+    background: var(--card-bg);
+    color: var(--ink);
+    border: 1px solid var(--card-border);
   }
 
   .btn-ghost {
-    @apply text-at-teal font-body text-sm underline underline-offset-4
-           hover:text-at-gold transition-colors cursor-pointer;
+    font-family: 'DM Sans', sans-serif;
+    font-size: 0.875rem;
+    text-decoration: underline;
+    text-underline-offset: 4px;
+    color: var(--ink-muted);
+    cursor: pointer;
+    transition: color 0.2s;
   }
+  .btn-ghost:hover { color: var(--accent); }
 
   .card {
-    @apply bg-white rounded-3xl border border-at-border p-6 shadow-card;
+    @apply rounded-3xl p-6;
+    background: var(--card-bg);
+    border: 1px solid var(--card-border);
+    box-shadow: 0 2px 16px rgba(0,0,0,0.04);
   }
 
   .card-teal {
-    @apply bg-gradient-to-br from-at-teal3 to-white rounded-3xl border border-at-teal/20 p-6 shadow-soft;
+    @apply rounded-3xl p-6;
+    background: color-mix(in srgb, var(--accent-2) 10%, var(--card-bg));
+    border: 1px solid color-mix(in srgb, var(--accent-2) 20%, transparent);
   }
 
   .card-gold {
-    @apply bg-gradient-to-br from-at-gold2 to-white rounded-3xl border border-at-gold/20 p-6;
-  }
-
-  .input {
-    @apply w-full border border-at-border rounded-2xl px-4 py-3
-           text-sm text-at-ink bg-white placeholder:text-at-muted
-           focus:outline-none focus:border-at-teal focus:shadow-glow
-           transition-all font-body;
+    @apply rounded-3xl p-6;
+    background: color-mix(in srgb, var(--accent) 8%, var(--card-bg));
+    border: 1px solid color-mix(in srgb, var(--accent) 20%, transparent);
   }
 
   .section-label {
-    @apply text-xs tracking-[0.15em] uppercase text-at-muted font-body font-semibold;
+    font-family: 'DM Sans', sans-serif;
+    font-size: 0.7rem;
+    font-weight: 600;
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    color: var(--ink-muted);
   }
 
-  .page-bg { @apply min-h-screen; background: linear-gradient(160deg, #FAFAF8 0%, #F0FDF9 100%); }
+  .input {
+    @apply w-full rounded-2xl px-4 py-3 text-sm transition-all;
+    font-family: 'DM Sans', sans-serif;
+    background: var(--card-bg);
+    border: 1px solid var(--card-border);
+    color: var(--ink);
+  }
+  .input:focus { outline: none; border-color: var(--accent); }
 
-  /* Status badges */
-  .badge { @apply inline-flex items-center px-3 py-1 rounded-pill text-xs font-body font-semibold; }
-  .badge-active    { @apply bg-at-teal3 text-at-teal; }
-  .badge-planning  { @apply bg-at-gold2 text-at-gold; }
-  .badge-wrap      { @apply bg-purple-100 text-purple-700; }
-  .badge-complete  { @apply bg-emerald-100 text-emerald-700; }
-  .badge-cancelled { @apply bg-gray-100 text-gray-500; }
+  .page-bg {
+    min-height: 100vh;
+    background: var(--bg-gradient);
+    background-image: var(--noise), var(--stripe);
+    background-color: var(--bg);
+  }
+
+  .badge          { @apply inline-flex items-center px-3 py-1 rounded-pill text-xs font-body font-semibold; }
+  .badge-active   { background: color-mix(in srgb, var(--accent-2) 15%, transparent); color: var(--accent-2); }
+  .badge-planning { background: color-mix(in srgb, var(--accent) 15%, transparent); color: var(--accent); }
+  .badge-wrap     { @apply bg-purple-100 text-purple-700; }
+  .badge-complete { @apply bg-emerald-100 text-emerald-700; }
+  .badge-cancelled{ @apply bg-gray-100 text-gray-500; }
+}
+
+/* ── THEME SWITCHER ── */
+.theme-switcher { display: flex; gap: 5px; align-items: center; flex-wrap: wrap; }
+.theme-btn {
+  font-family: 'Josefin Sans', sans-serif;
+  font-size: 10px; font-weight: 600; letter-spacing: 0.1em; text-transform: uppercase;
+  padding: 3px 10px; border-radius: 999px; cursor: pointer; transition: all 0.2s;
+  background: var(--card-bg);
+  border: 1px solid var(--card-border);
+  color: var(--ink-muted);
+}
+.theme-btn.active, .theme-btn:hover {
+  background: var(--accent); color: white; border-color: var(--accent);
 }
 
 ::-webkit-scrollbar { width: 4px; }
 ::-webkit-scrollbar-track { background: transparent; }
-::-webkit-scrollbar-thumb { background: #CCFBF1; border-radius: 9999px; }
+::-webkit-scrollbar-thumb { background: var(--accent); border-radius: 9999px; }
