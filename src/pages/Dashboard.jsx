@@ -41,19 +41,19 @@ export default function Dashboard() {
 
   return (
     <div className="page-bg">
-      {/* Header */}
-      <header className="px-6 py-6 border-b border-at-border">
-        <div className="max-w-2xl mx-auto flex items-center justify-between">
-          <div>
-            <h1 className="font-display text-at-ink text-3xl">m'atelier</h1>
-            <p className="text-at-muted text-sm font-body">Your life, managed.</p>
-          </div>
-          {user ? (
-            <button onClick={signOut} className="btn-ghost text-xs">Sign out</button>
-          ) : (
-            <button onClick={() => setShowAuth(true)} className="btn-primary text-sm px-5 py-2">Sign in →</button>
-          )}
+      {/* Header — theme-aware */}
+      <header style={{
+        position:'sticky',top:0,zIndex:100,
+        background:'color-mix(in srgb, var(--card-bg) 92%, transparent)',
+        backdropFilter:'blur(16px)',
+        borderBottom:'1px solid var(--card-border)',
+        padding:'0 24px',height:'56px',
+        display:'flex',alignItems:'center',justifyContent:'space-between',
+      }}>
+        <div>
+          <h1 style={{fontFamily:"'Josefin Sans',sans-serif",fontWeight:600,fontSize:'18px',letterSpacing:'0.02em',color:'var(--ink)'}}>m'atelier</h1>
         </div>
+        <ThemeToggle />
       </header>
 
       <main className="px-6 py-8 max-w-2xl mx-auto">
