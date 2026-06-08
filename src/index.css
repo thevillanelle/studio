@@ -79,9 +79,9 @@
 
 @layer base {
   body {
-    background: var(--bg-gradient);
+    background: var(--bg-gradient) !important;
     background-image: var(--noise), var(--stripe);
-    background-color: var(--bg);
+    background-color: var(--bg) !important;
     min-height: 100vh;
     color: var(--ink);
     font-family: 'DM Sans', system-ui, sans-serif;
@@ -164,7 +164,7 @@
 
   .page-bg {
     min-height: 100vh;
-    background: var(--bg-gradient);
+    background: var(--bg-gradient) !important;
     background-image: var(--noise), var(--stripe);
     background-color: var(--bg);
   }
