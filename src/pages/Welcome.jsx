@@ -2,6 +2,7 @@ import { motion } from 'framer-motion'
 import { useNavigate } from 'react-router-dom'
 import { useEffect, useState } from 'react'
 import { AnimatePresence } from 'framer-motion'
+import ThemeToggle from '../components/ThemeToggle'
 import { useAuthStore } from '../stores/useAuthStore'
 import AuthModal from '../components/AuthModal'
 
@@ -25,6 +26,7 @@ export default function Welcome() {
   }, [user, loading])
 
   return (
+    <div style={{position:'fixed',top:'16px',right:'16px',zIndex:50}}><ThemeToggle /></div>
     <div className="min-h-screen flex flex-col items-center justify-center px-6 py-16 relative overflow-hidden"
       style={{ background: 'linear-gradient(160deg, #FAFAF8 0%, #F0FDF9 100%)' }}>
 
