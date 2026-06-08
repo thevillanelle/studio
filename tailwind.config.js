@@ -29,8 +29,8 @@ export default {
         }
       },
       fontFamily: {
-        display: ['Fredoka One', 'cursive'],
-        body:    ['Inter', 'system-ui', 'sans-serif'],
+        display: ['Josefin Sans', 'system-ui', 'sans-serif'],
+        body:    ['DM Sans', 'system-ui', 'sans-serif'],
       },
       borderRadius: {
         pill: '9999px',
