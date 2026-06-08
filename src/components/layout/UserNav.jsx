@@ -3,6 +3,7 @@ import { useNavigate, useLocation } from 'react-router-dom'
 import { motion, AnimatePresence } from 'framer-motion'
 import { useAuthStore } from '../../stores/useAuthStore'
 import AuthModal from '../AuthModal'
+import ThemeToggle from '../ThemeToggle'
 
 function getInitials(user) {
   if (!user) return null
@@ -63,7 +64,10 @@ export default function UserNav() {
               <div className="p-5 border-b border-at-border">
                 <div className="flex items-center justify-between mb-3">
                   <p className="font-display text-lg text-at-ink">m'atelier</p>
-                  <button onClick={() => setOpen(false)} className="text-at-muted hover:text-at-ink text-xl">×</button>
+                  <div style={{display:'flex',alignItems:'center',gap:'8px'}}>
+                    <ThemeToggle />
+                    <button onClick={() => setOpen(false)} className="text-at-muted hover:text-at-ink text-xl">×</button>
+                  </div>
                 </div>
                 {user ? (
                   <div className="flex items-center gap-3">
