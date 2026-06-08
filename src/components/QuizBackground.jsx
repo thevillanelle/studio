@@ -1,50 +1,79 @@
 import { useEffect, useRef } from 'react'
 
-const GRADIENTS = [
-  "linear-gradient(135deg, #FDF6F7 0%, #F0D8FF 50%, #D8EEFF 100%)",
-  "linear-gradient(135deg, #F0D8FF 0%, #FFE0F5 50%, #FFF0D8 100%)",
-  "linear-gradient(135deg, #D8EEFF 0%, #E8FFD8 50%, #FFEFD8 100%)",
-  "linear-gradient(135deg, #FFF0D8 0%, #FFD8E8 50%, #E8D8FF 100%)",
-  "linear-gradient(135deg, #E8D8FF 0%, #D8F0FF 50%, #D8FFE8 100%)",
-  "linear-gradient(135deg, #D8FFE8 0%, #FFE8D8 50%, #FFD8F0 100%)",
-  "linear-gradient(135deg, #FFD8F0 0%, #E0D8FF 50%, #D8F0FF 100%)",
-  "linear-gradient(135deg, #D8F0FF 0%, #FFF0D8 50%, #F0FFD8 100%)",
+// Light gradients — cycle through hues as you progress
+const LIGHT_STOPS = [
+  ["#FDF6F7","#F0D8FF","#D8EEFF"],
+  ["#F0D8FF","#FFE0F5","#FFF0D8"],
+  ["#D8EEFF","#E8FFD8","#FFEFD8"],
+  ["#FFF0D8","#FFD8E8","#E8D8FF"],
+  ["#E8D8FF","#D8F0FF","#D8FFE8"],
+  ["#D8FFE8","#FFE8D8","#FFD8F0"],
+  ["#FFD8F0","#E0D8FF","#D8F0FF"],
+  ["#D8F0FF","#FFF0D8","#F0FFD8"],
 ]
 
-export default function QuizBackground({ step, total, children, style }) {
-  const progress = total > 0 ? step / total : 0
-  const idx = Math.min(Math.floor(progress * GRADIENTS.length), GRADIENTS.length - 1)
+// Dark gradients
+const DARK_STOPS = [
+  ["#09090f","#14081a","#0a1020"],
+  ["#0a1420","#14081a","#0a0a14"],
+  ["#0a1020","#08140a","#140a08"],
+  ["#140a08","#1a0814","#0a0814"],
+]
 
+function lerp(a, b, t) {
+  const pa = parseInt(a.slice(1), 16)
+  const pb = parseInt(b.slice(1), 16)
+  const ar = (pa >> 16) & 0xff, ag = (pa >> 8) & 0xff, ab = pa & 0xff
+  const br = (pb >> 16) & 0xff, bg = (pb >> 8) & 0xff, bb = pb & 0xff
+  const r = Math.round(ar + (br - ar) * t)
+  const g = Math.round(ag + (bg - ag) * t)
+  const bl = Math.round(ab + (bb - ab) * t)
+  return `#${r.toString(16).padStart(2,'0')}${g.toString(16).padStart(2,'0')}${bl.toString(16).padStart(2,'0')}`
+}
+
+function useAnimatedGradient(stops, speed = 0.0008) {
+  const ref = useRef(null)
+  const tRef = useRef(0)
+  const rafRef = useRef(null)
+
+  useEffect(() => {
+    let last = performance.now()
+    const animate = (now) => {
+      const dt = now - last
+      last = now
+      tRef.current = (tRef.current + dt * speed) % stops.length
+      const idx = Math.floor(tRef.current)
+      const next = (idx + 1) % stops.length
+      const frac = tRef.current - idx
+      const c0 = lerp(stops[idx][0], stops[next][0], frac)
+      const c1 = lerp(stops[idx][1], stops[next][1], frac)
+      const c2 = lerp(stops[idx][2], stops[next][2], frac)
+      if (ref.current) {
+        ref.current.style.background =
+          `linear-gradient(135deg, ${c0} 0%, ${c1} 50%, ${c2} 100%)`
+      }
+      rafRef.current = requestAnimationFrame(animate)
+    }
+    rafRef.current = requestAnimationFrame(animate)
+    return () => cancelAnimationFrame(rafRef.current)
+  }, [])
+
+  return ref
+}
+
+export default function QuizBackground({ children, style }) {
+  const ref = useAnimatedGradient(LIGHT_STOPS)
   return (
-    <div style={{
-      minHeight: '100vh',
-      background: GRADIENTS[idx],
-      backgroundAttachment: 'fixed',
-      transition: 'background 0.8s cubic-bezier(0.4, 0, 0.2, 1)',
-      ...style,
-    }}>
+    <div ref={ref} style={{ minHeight:'100vh', transition:'none', ...style }}>
       {children}
     </div>
   )
 }
 
-export const DARK_GRADIENTS = [
-  "linear-gradient(135deg, #09090f 0%, #14081a 50%, #0a1020 100%)",
-  "linear-gradient(135deg, #14081a 0%, #0a1420 50%, #0a1420 100%)",
-  "linear-gradient(135deg, #0a1020 0%, #08140a 50%, #140a08 100%)",
-  "linear-gradient(135deg, #140a08 0%, #1a0814 50%, #0a0814 100%)",
-]
-
-export function DarkQuizBackground({ step, total, children }) {
-  const progress = total > 0 ? step / total : 0
-  const idx = Math.min(Math.floor(progress * DARK_GRADIENTS.length), DARK_GRADIENTS.length - 1)
+export function DarkQuizBackground({ children }) {
+  const ref = useAnimatedGradient(DARK_STOPS, 0.0005)
   return (
-    <div style={{
-      minHeight: '100vh',
-      background: DARK_GRADIENTS[idx],
-      backgroundAttachment: 'fixed',
-      transition: 'background 0.8s cubic-bezier(0.4, 0, 0.2, 1)',
-    }}>
+    <div ref={ref} style={{ minHeight:'100vh' }}>
       {children}
     </div>
   )
