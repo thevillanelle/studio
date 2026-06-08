@@ -1,6 +1,7 @@
 -- ============================================================
--- M'ATELIER — Schema additions
--- Add to Supabase SQL Editor (safe to run alongside existing schema)
+-- RITUALWARE — Master Platform Schema
+-- Covers all apps: m'atelier, Ritualwear, Ritualwhere, Glow Up
+-- Run in Supabase SQL Editor — all statements are idempotent
 -- ============================================================
 
 -- ─────────────────────────────────────────────────────────────
