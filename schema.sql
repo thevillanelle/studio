@@ -229,3 +229,21 @@ ALTER TABLE glow_up_results ENABLE ROW LEVEL SECURITY;
 DROP POLICY IF EXISTS "Users can manage own glow up results" ON glow_up_results;
 CREATE POLICY "Users can manage own glow up results" ON glow_up_results FOR ALL USING (auth.uid() = user_id);
 CREATE INDEX IF NOT EXISTS idx_glow_up_results_user_id ON glow_up_results(user_id);
+
+-- ─────────────────────────────────────────────────────────────────────────────
+-- TABLE: dating_profiles (Ritualwhere — Dating strategy)
+-- ─────────────────────────────────────────────────────────────────────────────
+CREATE TABLE IF NOT EXISTS dating_profiles (
+  id               UUID        PRIMARY KEY DEFAULT uuid_generate_v4(),
+  user_id          UUID        NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+  dating_goal      TEXT,
+  dominant_type    TEXT,
+  main_strategy    TEXT,
+  pattern          TEXT,
+  answers          JSONB,
+  created_at       TIMESTAMPTZ DEFAULT NOW()
+);
+ALTER TABLE dating_profiles ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "Users can manage own dating profiles" ON dating_profiles;
+CREATE POLICY "Users can manage own dating profiles" ON dating_profiles FOR ALL USING (auth.uid() = user_id);
+CREATE INDEX IF NOT EXISTS idx_dating_profiles_user_id ON dating_profiles(user_id);
