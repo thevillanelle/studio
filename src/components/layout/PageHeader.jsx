@@ -1,19 +1,40 @@
 import { useNavigate } from 'react-router-dom'
+import ThemeToggle from '../ThemeToggle'
 
 export default function PageHeader({ title, backTo }) {
   const navigate = useNavigate()
   return (
-    <header className="sticky top-0 z-10 bg-at-cream/90 backdrop-blur border-b border-at-border px-6 py-4 flex items-center gap-4">
+    <header style={{
+      position:'sticky', top:0, zIndex:100,
+      background:'color-mix(in srgb, var(--card-bg) 90%, transparent)',
+      backdropFilter:'blur(16px)',
+      borderBottom:'1px solid var(--card-border)',
+      padding:'0 20px',
+      height:'56px',
+      display:'flex', alignItems:'center', justifyContent:'space-between', gap:'12px',
+    }}>
       <button
         onClick={() => backTo ? navigate(backTo) : navigate(-1)}
-        className="flex items-center gap-2 bg-white border border-at-border text-at-plum
-                   font-display text-sm px-4 py-2 rounded-pill shadow-card
-                   hover:-translate-y-0.5 hover:border-at-teal hover:shadow-glow
-                   active:translate-y-0.5 transition-all duration-100"
-      >
+        style={{
+          display:'flex', alignItems:'center', gap:'6px',
+          background:'var(--card-bg)', color:'var(--ink)',
+          border:'1px solid var(--card-border)',
+          padding:'6px 14px', borderRadius:'999px',
+          fontSize:'13px', fontWeight:500, cursor:'pointer',
+          flexShrink:0,
+        }}>
         ← Back
       </button>
-      {title && <h1 className="font-display text-at-plum text-xl">{title}</h1>}
+      {title && (
+        <h1 style={{
+          fontFamily:'var(--font-display, inherit)',
+          fontSize:'16px', fontWeight:600,
+          color:'var(--ink)', flex:1, textAlign:'center',
+        }}>
+          {title}
+        </h1>
+      )}
+      <ThemeToggle />
     </header>
   )
 }
