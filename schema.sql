@@ -617,3 +617,354 @@ AS $$
     ) t
   ) END
 $$;
+
+-- ============================================================
+-- PHASE 2 — SOCIAL INFRASTRUCTURE
+-- ============================================================
+
+-- ─────────────────────────────────────────────────────────────
+-- TABLE: friendships (bidirectional friend connections)
+-- ─────────────────────────────────────────────────────────────
+CREATE TABLE IF NOT EXISTS friendships (
+  id           UUID        PRIMARY KEY DEFAULT uuid_generate_v4(),
+  requester_id UUID        NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+  addressee_id UUID        NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+  status       TEXT        NOT NULL DEFAULT 'pending' CHECK (status IN ('pending','accepted','blocked')),
+  created_at   TIMESTAMPTZ DEFAULT NOW(),
+  updated_at   TIMESTAMPTZ DEFAULT NOW(),
+  UNIQUE (requester_id, addressee_id),
+  CHECK (requester_id <> addressee_id)
+);
+ALTER TABLE friendships ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "Users manage own friendships" ON friendships;
+CREATE POLICY "Users manage own friendships" ON friendships FOR ALL
+  USING (auth.uid() = requester_id OR auth.uid() = addressee_id);
+CREATE INDEX IF NOT EXISTS idx_friendships_requester ON friendships(requester_id);
+CREATE INDEX IF NOT EXISTS idx_friendships_addressee ON friendships(addressee_id);
+
+-- ─────────────────────────────────────────────────────────────
+-- TABLE: groups
+-- ─────────────────────────────────────────────────────────────
+CREATE TABLE IF NOT EXISTS groups (
+  id           UUID        PRIMARY KEY DEFAULT uuid_generate_v4(),
+  created_by   UUID        NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+  name         TEXT        NOT NULL,
+  description  TEXT,
+  cover_emoji  TEXT        DEFAULT '✦',
+  privacy      TEXT        NOT NULL DEFAULT 'private' CHECK (privacy IN ('public','private','invite_only')),
+  created_at   TIMESTAMPTZ DEFAULT NOW()
+);
+ALTER TABLE groups ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "Group members can read groups" ON groups;
+DROP POLICY IF EXISTS "Group admins manage groups" ON groups;
+CREATE POLICY "Group members can read groups" ON groups FOR SELECT
+  USING (
+    privacy = 'public'
+    OR created_by = auth.uid()
+    OR EXISTS (SELECT 1 FROM group_members gm WHERE gm.group_id = id AND gm.user_id = auth.uid() AND gm.status = 'active')
+  );
+CREATE POLICY "Group admins manage groups" ON groups FOR ALL
+  USING (created_by = auth.uid());
+CREATE INDEX IF NOT EXISTS idx_groups_created_by ON groups(created_by);
+
+-- ─────────────────────────────────────────────────────────────
+-- TABLE: group_members
+-- ─────────────────────────────────────────────────────────────
+CREATE TABLE IF NOT EXISTS group_members (
+  id         UUID        PRIMARY KEY DEFAULT uuid_generate_v4(),
+  group_id   UUID        NOT NULL REFERENCES groups(id) ON DELETE CASCADE,
+  user_id    UUID        NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+  role       TEXT        NOT NULL DEFAULT 'member' CHECK (role IN ('admin','moderator','member')),
+  status     TEXT        NOT NULL DEFAULT 'active' CHECK (status IN ('active','invited','banned')),
+  joined_at  TIMESTAMPTZ DEFAULT NOW(),
+  UNIQUE (group_id, user_id)
+);
+ALTER TABLE group_members ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "Members read group membership" ON group_members;
+DROP POLICY IF EXISTS "Admins manage group membership" ON group_members;
+CREATE POLICY "Members read group membership" ON group_members FOR SELECT
+  USING (user_id = auth.uid() OR EXISTS (
+    SELECT 1 FROM group_members gm2 WHERE gm2.group_id = group_id AND gm2.user_id = auth.uid() AND gm2.status = 'active'
+  ));
+CREATE POLICY "Admins manage group membership" ON group_members FOR ALL
+  USING (EXISTS (
+    SELECT 1 FROM group_members gm WHERE gm.group_id = group_id AND gm.user_id = auth.uid() AND gm.role IN ('admin','moderator')
+  ) OR user_id = auth.uid());
+CREATE INDEX IF NOT EXISTS idx_group_members_group ON group_members(group_id);
+CREATE INDEX IF NOT EXISTS idx_group_members_user  ON group_members(user_id);
+
+-- ─────────────────────────────────────────────────────────────
+-- TABLE: activity_feed
+-- ─────────────────────────────────────────────────────────────
+CREATE TABLE IF NOT EXISTS activity_feed (
+  id           UUID        PRIMARY KEY DEFAULT uuid_generate_v4(),
+  user_id      UUID        NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+  actor_name   TEXT,
+  event_type   TEXT        NOT NULL,
+  -- event_type values: quiz_completed | fire_milestone | look_saved |
+  --   style_result | neighborhood_match | friend_joined | group_created |
+  --   challenge_completed | badge_earned
+  payload      JSONB       DEFAULT '{}',
+  visibility   TEXT        NOT NULL DEFAULT 'friends' CHECK (visibility IN ('public','friends','group','private')),
+  group_id     UUID        REFERENCES groups(id) ON DELETE SET NULL,
+  created_at   TIMESTAMPTZ DEFAULT NOW()
+);
+ALTER TABLE activity_feed ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "Users read own and friends feed" ON activity_feed;
+DROP POLICY IF EXISTS "Users write own activity" ON activity_feed;
+CREATE POLICY "Users write own activity" ON activity_feed FOR INSERT
+  WITH CHECK (auth.uid() = user_id);
+CREATE POLICY "Users read own and friends feed" ON activity_feed FOR SELECT
+  USING (
+    user_id = auth.uid()
+    OR visibility = 'public'
+    OR (visibility = 'friends' AND EXISTS (
+      SELECT 1 FROM friendships f
+      WHERE f.status = 'accepted'
+        AND ((f.requester_id = auth.uid() AND f.addressee_id = user_id)
+          OR (f.addressee_id = auth.uid() AND f.requester_id = user_id))
+    ))
+    OR (visibility = 'group' AND group_id IS NOT NULL AND EXISTS (
+      SELECT 1 FROM group_members gm
+      WHERE gm.group_id = activity_feed.group_id AND gm.user_id = auth.uid() AND gm.status = 'active'
+    ))
+  );
+CREATE INDEX IF NOT EXISTS idx_activity_feed_user    ON activity_feed(user_id);
+CREATE INDEX IF NOT EXISTS idx_activity_feed_created ON activity_feed(created_at DESC);
+
+-- ─────────────────────────────────────────────────────────────
+-- TABLE: notifications
+-- ─────────────────────────────────────────────────────────────
+CREATE TABLE IF NOT EXISTS notifications (
+  id           UUID        PRIMARY KEY DEFAULT uuid_generate_v4(),
+  user_id      UUID        NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+  type         TEXT        NOT NULL,
+  -- type values: friend_request | friend_accepted | group_invite |
+  --   challenge_invite | badge_earned | milestone_reached
+  title        TEXT        NOT NULL,
+  body         TEXT,
+  payload      JSONB       DEFAULT '{}',
+  read         BOOLEAN     DEFAULT FALSE,
+  created_at   TIMESTAMPTZ DEFAULT NOW()
+);
+ALTER TABLE notifications ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "Users manage own notifications" ON notifications;
+CREATE POLICY "Users manage own notifications" ON notifications FOR ALL
+  USING (auth.uid() = user_id);
+CREATE INDEX IF NOT EXISTS idx_notifications_user   ON notifications(user_id);
+CREATE INDEX IF NOT EXISTS idx_notifications_unread ON notifications(user_id, read) WHERE read = FALSE;
+
+-- ─────────────────────────────────────────────────────────────
+-- TABLE: privacy_settings
+-- ─────────────────────────────────────────────────────────────
+CREATE TABLE IF NOT EXISTS privacy_settings (
+  user_id             UUID PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
+  profile_visibility  TEXT DEFAULT 'friends' CHECK (profile_visibility IN ('public','friends','private')),
+  fire_visibility     TEXT DEFAULT 'private' CHECK (fire_visibility IN ('public','friends','private')),
+  style_visibility    TEXT DEFAULT 'friends' CHECK (style_visibility IN ('public','friends','private')),
+  activity_visibility TEXT DEFAULT 'friends' CHECK (activity_visibility IN ('public','friends','private')),
+  searchable          BOOLEAN DEFAULT TRUE,
+  updated_at          TIMESTAMPTZ DEFAULT NOW()
+);
+ALTER TABLE privacy_settings ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "Users manage own privacy" ON privacy_settings;
+CREATE POLICY "Users manage own privacy" ON privacy_settings FOR ALL
+  USING (auth.uid() = user_id);
+
+-- ─────────────────────────────────────────────────────────────
+-- TABLE: shared_buckets (group savings goals)
+-- ─────────────────────────────────────────────────────────────
+CREATE TABLE IF NOT EXISTS shared_buckets (
+  id           UUID        PRIMARY KEY DEFAULT uuid_generate_v4(),
+  group_id     UUID        REFERENCES groups(id) ON DELETE CASCADE,
+  created_by   UUID        NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+  name         TEXT        NOT NULL,
+  goal_amount  NUMERIC(12,2),
+  deadline     DATE,
+  notes        TEXT,
+  created_at   TIMESTAMPTZ DEFAULT NOW()
+);
+ALTER TABLE shared_buckets ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "Group members read shared buckets" ON shared_buckets;
+DROP POLICY IF EXISTS "Bucket creator manages bucket" ON shared_buckets;
+CREATE POLICY "Group members read shared buckets" ON shared_buckets FOR SELECT
+  USING (
+    created_by = auth.uid()
+    OR (group_id IS NOT NULL AND EXISTS (
+      SELECT 1 FROM group_members gm
+      WHERE gm.group_id = shared_buckets.group_id AND gm.user_id = auth.uid() AND gm.status = 'active'
+    ))
+  );
+CREATE POLICY "Bucket creator manages bucket" ON shared_buckets FOR ALL
+  USING (created_by = auth.uid());
+CREATE INDEX IF NOT EXISTS idx_shared_buckets_group ON shared_buckets(group_id);
+
+-- ─────────────────────────────────────────────────────────────
+-- TABLE: shared_bucket_contributions
+-- ─────────────────────────────────────────────────────────────
+CREATE TABLE IF NOT EXISTS shared_bucket_contributions (
+  id         UUID          PRIMARY KEY DEFAULT uuid_generate_v4(),
+  bucket_id  UUID          NOT NULL REFERENCES shared_buckets(id) ON DELETE CASCADE,
+  user_id    UUID          NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+  amount     NUMERIC(12,2) NOT NULL,
+  note       TEXT,
+  logged_at  TIMESTAMPTZ   DEFAULT NOW()
+);
+ALTER TABLE shared_bucket_contributions ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "Members log own contributions" ON shared_bucket_contributions;
+DROP POLICY IF EXISTS "Members read bucket contributions" ON shared_bucket_contributions;
+CREATE POLICY "Members log own contributions" ON shared_bucket_contributions FOR INSERT
+  WITH CHECK (auth.uid() = user_id);
+CREATE POLICY "Members read bucket contributions" ON shared_bucket_contributions FOR SELECT
+  USING (
+    user_id = auth.uid()
+    OR EXISTS (
+      SELECT 1 FROM shared_buckets sb
+      JOIN group_members gm ON gm.group_id = sb.group_id
+      WHERE sb.id = bucket_id AND gm.user_id = auth.uid() AND gm.status = 'active'
+    )
+  );
+CREATE INDEX IF NOT EXISTS idx_contributions_bucket ON shared_bucket_contributions(bucket_id);
+
+-- ─────────────────────────────────────────────────────────────
+-- TABLE: group_challenges
+-- ─────────────────────────────────────────────────────────────
+CREATE TABLE IF NOT EXISTS group_challenges (
+  id              UUID        PRIMARY KEY DEFAULT uuid_generate_v4(),
+  group_id        UUID        REFERENCES groups(id) ON DELETE CASCADE,
+  created_by      UUID        NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+  title           TEXT        NOT NULL,
+  description     TEXT,
+  challenge_type  TEXT        DEFAULT 'savings' CHECK (challenge_type IN ('savings','style','habit','fire','custom')),
+  target_value    NUMERIC(12,2),
+  starts_at       TIMESTAMPTZ DEFAULT NOW(),
+  ends_at         TIMESTAMPTZ,
+  created_at      TIMESTAMPTZ DEFAULT NOW()
+);
+ALTER TABLE group_challenges ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "Group members read challenges" ON group_challenges;
+DROP POLICY IF EXISTS "Challenge creator manages challenge" ON group_challenges;
+CREATE POLICY "Group members read challenges" ON group_challenges FOR SELECT
+  USING (
+    created_by = auth.uid()
+    OR (group_id IS NOT NULL AND EXISTS (
+      SELECT 1 FROM group_members gm
+      WHERE gm.group_id = group_challenges.group_id AND gm.user_id = auth.uid() AND gm.status = 'active'
+    ))
+  );
+CREATE POLICY "Challenge creator manages challenge" ON group_challenges FOR ALL
+  USING (created_by = auth.uid());
+CREATE INDEX IF NOT EXISTS idx_challenges_group ON group_challenges(group_id);
+
+-- ─────────────────────────────────────────────────────────────
+-- TABLE: challenge_participants
+-- ─────────────────────────────────────────────────────────────
+CREATE TABLE IF NOT EXISTS challenge_participants (
+  id             UUID          PRIMARY KEY DEFAULT uuid_generate_v4(),
+  challenge_id   UUID          NOT NULL REFERENCES group_challenges(id) ON DELETE CASCADE,
+  user_id        UUID          NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+  progress_value NUMERIC(12,2) DEFAULT 0,
+  completed      BOOLEAN       DEFAULT FALSE,
+  joined_at      TIMESTAMPTZ   DEFAULT NOW(),
+  UNIQUE (challenge_id, user_id)
+);
+ALTER TABLE challenge_participants ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "Participants manage own progress" ON challenge_participants;
+DROP POLICY IF EXISTS "Challenge members read participants" ON challenge_participants;
+CREATE POLICY "Participants manage own progress" ON challenge_participants FOR ALL
+  USING (auth.uid() = user_id);
+CREATE POLICY "Challenge members read participants" ON challenge_participants FOR SELECT
+  USING (EXISTS (
+    SELECT 1 FROM group_challenges gc
+    JOIN group_members gm ON gm.group_id = gc.group_id
+    WHERE gc.id = challenge_id AND gm.user_id = auth.uid() AND gm.status = 'active'
+  ) OR user_id = auth.uid());
+CREATE INDEX IF NOT EXISTS idx_challenge_participants_challenge ON challenge_participants(challenge_id);
+CREATE INDEX IF NOT EXISTS idx_challenge_participants_user      ON challenge_participants(user_id);
+
+-- ─────────────────────────────────────────────────────────────
+-- RPC: get_friend_feed(p_limit, p_offset)
+-- Returns signed-in user's feed + accepted friends' public/friends posts
+-- ─────────────────────────────────────────────────────────────
+CREATE OR REPLACE FUNCTION get_friend_feed(p_limit INT DEFAULT 30, p_offset INT DEFAULT 0)
+RETURNS TABLE (
+  id          UUID,
+  user_id     UUID,
+  actor_name  TEXT,
+  event_type  TEXT,
+  payload     JSONB,
+  visibility  TEXT,
+  group_id    UUID,
+  created_at  TIMESTAMPTZ
+)
+LANGUAGE sql
+SECURITY DEFINER
+STABLE
+AS $$
+  SELECT af.id, af.user_id, af.actor_name, af.event_type,
+         af.payload, af.visibility, af.group_id, af.created_at
+  FROM activity_feed af
+  WHERE
+    af.user_id = auth.uid()
+    OR af.visibility = 'public'
+    OR (af.visibility = 'friends' AND EXISTS (
+      SELECT 1 FROM friendships f
+      WHERE f.status = 'accepted'
+        AND ((f.requester_id = auth.uid() AND f.addressee_id = af.user_id)
+          OR (f.addressee_id = auth.uid() AND f.requester_id = af.user_id))
+    ))
+  ORDER BY af.created_at DESC
+  LIMIT p_limit OFFSET p_offset;
+$$;
+
+-- ─────────────────────────────────────────────────────────────
+-- RPC: send_friend_request(target_id UUID)
+-- ─────────────────────────────────────────────────────────────
+CREATE OR REPLACE FUNCTION send_friend_request(target_id UUID)
+RETURNS JSON
+LANGUAGE plpgsql
+SECURITY DEFINER
+AS $$
+DECLARE
+  existing friendships%ROWTYPE;
+BEGIN
+  IF target_id = auth.uid() THEN
+    RETURN '{"error":"cannot add yourself"}'::json;
+  END IF;
+  SELECT * INTO existing FROM friendships
+  WHERE (requester_id = auth.uid() AND addressee_id = target_id)
+     OR (requester_id = target_id AND addressee_id = auth.uid());
+  IF FOUND THEN
+    RETURN json_build_object('status', existing.status);
+  END IF;
+  INSERT INTO friendships (requester_id, addressee_id, status)
+  VALUES (auth.uid(), target_id, 'pending');
+  INSERT INTO notifications (user_id, type, title, body, payload)
+  VALUES (target_id, 'friend_request', 'New connection request',
+    'Someone wants to connect with you on Ritualware.',
+    json_build_object('from_user_id', auth.uid())::jsonb);
+  RETURN '{"status":"pending"}'::json;
+END;
+$$;
+
+-- ─────────────────────────────────────────────────────────────
+-- RPC: accept_friend_request(requester UUID)
+-- ─────────────────────────────────────────────────────────────
+CREATE OR REPLACE FUNCTION accept_friend_request(requester UUID)
+RETURNS JSON
+LANGUAGE plpgsql
+SECURITY DEFINER
+AS $$
+BEGIN
+  UPDATE friendships SET status = 'accepted', updated_at = NOW()
+  WHERE requester_id = requester AND addressee_id = auth.uid() AND status = 'pending';
+  IF NOT FOUND THEN
+    RETURN '{"error":"request not found"}'::json;
+  END IF;
+  INSERT INTO notifications (user_id, type, title, body, payload)
+  VALUES (requester, 'friend_accepted', 'Connection accepted',
+    'Your connection request was accepted.',
+    json_build_object('from_user_id', auth.uid())::jsonb);
+  RETURN '{"status":"accepted"}'::json;
+END;
+$$;
