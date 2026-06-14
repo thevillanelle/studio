@@ -655,14 +655,7 @@ CREATE TABLE IF NOT EXISTS groups (
   created_at   TIMESTAMPTZ DEFAULT NOW()
 );
 ALTER TABLE groups ENABLE ROW LEVEL SECURITY;
-DROP POLICY IF EXISTS "Group members can read groups" ON groups;
 DROP POLICY IF EXISTS "Group admins manage groups" ON groups;
-CREATE POLICY "Group members can read groups" ON groups FOR SELECT
-  USING (
-    privacy = 'public'
-    OR created_by = auth.uid()
-    OR EXISTS (SELECT 1 FROM group_members gm WHERE gm.group_id = id AND gm.user_id = auth.uid() AND gm.status = 'active')
-  );
 CREATE POLICY "Group admins manage groups" ON groups FOR ALL
   USING (created_by = auth.uid());
 CREATE INDEX IF NOT EXISTS idx_groups_created_by ON groups(created_by);
@@ -692,6 +685,15 @@ CREATE POLICY "Admins manage group membership" ON group_members FOR ALL
   ) OR user_id = auth.uid());
 CREATE INDEX IF NOT EXISTS idx_group_members_group ON group_members(group_id);
 CREATE INDEX IF NOT EXISTS idx_group_members_user  ON group_members(user_id);
+
+-- groups SELECT policy deferred until after group_members exists
+DROP POLICY IF EXISTS "Group members can read groups" ON groups;
+CREATE POLICY "Group members can read groups" ON groups FOR SELECT
+  USING (
+    privacy = 'public'
+    OR created_by = auth.uid()
+    OR EXISTS (SELECT 1 FROM group_members gm WHERE gm.group_id = id AND gm.user_id = auth.uid() AND gm.status = 'active')
+  );
 
 -- ─────────────────────────────────────────────────────────────
 -- TABLE: activity_feed
@@ -967,4 +969,231 @@ BEGIN
     json_build_object('from_user_id', auth.uid())::jsonb);
   RETURN '{"status":"accepted"}'::json;
 END;
+$$;
+
+-- ============================================================
+-- PHASE 3 — GAMIFICATION
+-- ============================================================
+
+-- ─────────────────────────────────────────────────────────────
+-- TABLE: badges (badge definitions)
+-- ─────────────────────────────────────────────────────────────
+CREATE TABLE IF NOT EXISTS badges (
+  id           UUID    PRIMARY KEY DEFAULT uuid_generate_v4(),
+  slug         TEXT    NOT NULL UNIQUE,
+  name         TEXT    NOT NULL,
+  description  TEXT,
+  emoji        TEXT    DEFAULT '🏅',
+  app          TEXT    NOT NULL DEFAULT 'cross'
+    CHECK (app IN ('ritualwear','glowup','ritualwhere','ritualwealth','matelier','cross')),
+  trigger_type TEXT    NOT NULL DEFAULT 'manual',
+  -- trigger_type values: manual | quiz_completed | milestone | challenge_completed |
+  --   friend_joined | group_created | streak | full_sync
+  trigger_meta JSONB   DEFAULT '{}',
+  points_value INT     DEFAULT 0,
+  is_secret    BOOLEAN DEFAULT FALSE,
+  created_at   TIMESTAMPTZ DEFAULT NOW()
+);
+ALTER TABLE badges ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "Badges are public" ON badges;
+CREATE POLICY "Badges are public" ON badges FOR SELECT USING (TRUE);
+
+-- Seed badge definitions
+INSERT INTO badges (slug, name, description, emoji, app, trigger_type, points_value) VALUES
+  ('synced_squad',        'Synced Squad',         'Coordinate outfits with your group',                     '👗', 'ritualwear',   'group_created',       25),
+  ('runway_ready',        'Runway Ready',          'Complete a group style challenge',                        '✨', 'ritualwear',   'challenge_completed', 50),
+  ('glow_up_gang',        'Glow Up Gang',          'Start a group Glow Up audit',                             '🔺', 'glowup',       'group_created',       25),
+  ('product_pals',        'Product Pals',          'Complete a 30-day product testing challenge',              '🧴', 'glowup',       'challenge_completed', 50),
+  ('neighborhood_nine',   'Neighborhood Nine',     'Run a group neighborhood match',                          '📍', 'ritualwhere',  'challenge_completed', 25),
+  ('rent_split_ready',    'Rent Split Ready',      'Set up a shared address with your group',                 '🏠', 'ritualwhere',  'milestone',           50),
+  ('fire_family',         'FIRE Family',           'Create a Team FIRE hub',                                  '🔥', 'ritualwealth', 'group_created',       25),
+  ('enclave_architects',  'Enclave Architects',    'Hit a shared savings milestone',                          '🏛',  'ritualwealth', 'milestone',           50),
+  ('debt_destroyers',     'Debt Destroyers',       'Your team reaches collective debt $0',                    '💥', 'ritualwealth', 'milestone',           100),
+  ('full_sync',           'Full Sync',             'Complete all 5 Ritualware apps',                          '⬡',  'cross',        'full_sync',           100),
+  ('cheerleader_supreme', 'Cheerleader Supreme',   'Cheer on 50 friends across the platform',                 '📣', 'cross',        'milestone',           75),
+  ('quiz_taker',          'Quiz Taker',            'Complete your first Ritualwealth quiz',                   '🧠', 'ritualwealth', 'quiz_completed',      10),
+  ('fire_mapped',         'FIRE Mapped',           'Complete all 5 Ritualwealth quizzes',                     '🗺',  'ritualwealth', 'quiz_completed',      50),
+  ('style_unlocked',      'Style Unlocked',        'Complete your Style Bible',                                '💄', 'ritualwear',   'quiz_completed',      25),
+  ('neighbor_found',      'Neighbor Found',        'Get your first neighborhood match',                       '🏙',  'ritualwhere',  'quiz_completed',      25),
+  ('glow_scored',         'Glow Scored',           'Complete your first Glow Up audit',                       '✦',  'glowup',       'quiz_completed',      25)
+ON CONFLICT (slug) DO NOTHING;
+
+-- ─────────────────────────────────────────────────────────────
+-- TABLE: user_badges (earned badges)
+-- ─────────────────────────────────────────────────────────────
+CREATE TABLE IF NOT EXISTS user_badges (
+  id         UUID        PRIMARY KEY DEFAULT uuid_generate_v4(),
+  user_id    UUID        NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+  badge_id   UUID        NOT NULL REFERENCES badges(id) ON DELETE CASCADE,
+  earned_at  TIMESTAMPTZ DEFAULT NOW(),
+  context    JSONB       DEFAULT '{}',
+  UNIQUE (user_id, badge_id)
+);
+ALTER TABLE user_badges ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "Users read own badges" ON user_badges;
+DROP POLICY IF EXISTS "Users read friends badges" ON user_badges;
+DROP POLICY IF EXISTS "System awards badges" ON user_badges;
+CREATE POLICY "Users read own badges" ON user_badges FOR SELECT
+  USING (auth.uid() = user_id);
+CREATE POLICY "Users read friends badges" ON user_badges FOR SELECT
+  USING (EXISTS (
+    SELECT 1 FROM friendships f WHERE f.status = 'accepted'
+      AND ((f.requester_id = auth.uid() AND f.addressee_id = user_id)
+        OR (f.addressee_id = auth.uid() AND f.requester_id = user_id))
+  ));
+CREATE POLICY "System awards badges" ON user_badges FOR INSERT
+  WITH CHECK (auth.uid() = user_id);
+CREATE INDEX IF NOT EXISTS idx_user_badges_user ON user_badges(user_id);
+
+-- ─────────────────────────────────────────────────────────────
+-- TABLE: points_transactions
+-- ─────────────────────────────────────────────────────────────
+CREATE TABLE IF NOT EXISTS points_transactions (
+  id           UUID        PRIMARY KEY DEFAULT uuid_generate_v4(),
+  user_id      UUID        NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+  points       INT         NOT NULL,
+  -- positive = earn, negative = spend
+  reason       TEXT        NOT NULL,
+  -- reason values: cheer | challenge_complete | milestone | badge_earned |
+  --   quiz_completed | friend_joined | group_created | streak | manual
+  reference_id UUID,
+  -- optional FK to the thing that caused the points (challenge, badge, etc.)
+  created_at   TIMESTAMPTZ DEFAULT NOW()
+);
+ALTER TABLE points_transactions ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "Users read own points" ON points_transactions;
+DROP POLICY IF EXISTS "Users earn own points" ON points_transactions;
+CREATE POLICY "Users read own points" ON points_transactions FOR SELECT
+  USING (auth.uid() = user_id);
+CREATE POLICY "Users earn own points" ON points_transactions FOR INSERT
+  WITH CHECK (auth.uid() = user_id);
+CREATE INDEX IF NOT EXISTS idx_points_user    ON points_transactions(user_id);
+CREATE INDEX IF NOT EXISTS idx_points_created ON points_transactions(created_at DESC);
+
+-- ─────────────────────────────────────────────────────────────
+-- RPC: award_badge(p_badge_slug TEXT, p_context JSONB)
+-- Awards a badge + points to the signed-in user (idempotent)
+-- ─────────────────────────────────────────────────────────────
+CREATE OR REPLACE FUNCTION award_badge(p_badge_slug TEXT, p_context JSONB DEFAULT '{}')
+RETURNS JSON
+LANGUAGE plpgsql
+SECURITY DEFINER
+AS $$
+DECLARE
+  v_badge badges%ROWTYPE;
+  v_existing user_badges%ROWTYPE;
+BEGIN
+  SELECT * INTO v_badge FROM badges WHERE slug = p_badge_slug;
+  IF NOT FOUND THEN
+    RETURN json_build_object('error', 'badge not found');
+  END IF;
+
+  SELECT * INTO v_existing FROM user_badges
+  WHERE user_id = auth.uid() AND badge_id = v_badge.id;
+  IF FOUND THEN
+    RETURN json_build_object('status', 'already_earned', 'badge', v_badge.name);
+  END IF;
+
+  INSERT INTO user_badges (user_id, badge_id, context)
+  VALUES (auth.uid(), v_badge.id, p_context);
+
+  IF v_badge.points_value > 0 THEN
+    INSERT INTO points_transactions (user_id, points, reason, reference_id)
+    VALUES (auth.uid(), v_badge.points_value, 'badge_earned', v_badge.id);
+  END IF;
+
+  INSERT INTO notifications (user_id, type, title, body, payload)
+  VALUES (auth.uid(), 'badge_earned',
+    'Badge earned: ' || v_badge.emoji || ' ' || v_badge.name,
+    v_badge.description,
+    json_build_object('badge_slug', p_badge_slug, 'points', v_badge.points_value)::jsonb);
+
+  INSERT INTO activity_feed (user_id, event_type, payload, visibility)
+  VALUES (auth.uid(), 'badge_earned',
+    json_build_object('badge_slug', p_badge_slug, 'badge_name', v_badge.name, 'emoji', v_badge.emoji)::jsonb,
+    'friends');
+
+  RETURN json_build_object('status', 'awarded', 'badge', v_badge.name, 'points', v_badge.points_value);
+END;
+$$;
+
+-- ─────────────────────────────────────────────────────────────
+-- RPC: add_points(p_points INT, p_reason TEXT, p_reference_id UUID)
+-- ─────────────────────────────────────────────────────────────
+CREATE OR REPLACE FUNCTION add_points(p_points INT, p_reason TEXT, p_reference_id UUID DEFAULT NULL)
+RETURNS JSON
+LANGUAGE plpgsql
+SECURITY DEFINER
+AS $$
+BEGIN
+  INSERT INTO points_transactions (user_id, points, reason, reference_id)
+  VALUES (auth.uid(), p_points, p_reason, p_reference_id);
+  RETURN json_build_object('status', 'ok', 'points', p_points);
+END;
+$$;
+
+-- ─────────────────────────────────────────────────────────────
+-- RPC: get_leaderboard(p_group_id UUID, p_period TEXT)
+-- Returns ranked points totals for a group (weekly/monthly/all_time)
+-- ─────────────────────────────────────────────────────────────
+CREATE OR REPLACE FUNCTION get_leaderboard(p_group_id UUID DEFAULT NULL, p_period TEXT DEFAULT 'all_time')
+RETURNS TABLE (
+  user_id    UUID,
+  total_pts  BIGINT,
+  badge_count BIGINT,
+  rank       BIGINT
+)
+LANGUAGE sql
+SECURITY DEFINER
+STABLE
+AS $$
+  WITH period_filter AS (
+    SELECT CASE p_period
+      WHEN 'weekly'  THEN NOW() - INTERVAL '7 days'
+      WHEN 'monthly' THEN NOW() - INTERVAL '30 days'
+      ELSE '1970-01-01'::TIMESTAMPTZ
+    END AS since
+  ),
+  eligible_users AS (
+    SELECT DISTINCT gm.user_id FROM group_members gm
+    WHERE p_group_id IS NOT NULL AND gm.group_id = p_group_id AND gm.status = 'active'
+    UNION
+    SELECT auth.uid() WHERE p_group_id IS NULL
+    UNION
+    SELECT f.addressee_id FROM friendships f WHERE p_group_id IS NULL AND f.requester_id = auth.uid() AND f.status = 'accepted'
+    UNION
+    SELECT f.requester_id FROM friendships f WHERE p_group_id IS NULL AND f.addressee_id = auth.uid() AND f.status = 'accepted'
+  ),
+  totals AS (
+    SELECT pt.user_id,
+      COALESCE(SUM(pt.points), 0) AS total_pts
+    FROM points_transactions pt
+    JOIN eligible_users eu ON eu.user_id = pt.user_id
+    WHERE pt.created_at >= (SELECT since FROM period_filter) AND pt.points > 0
+    GROUP BY pt.user_id
+  ),
+  badge_counts AS (
+    SELECT ub.user_id, COUNT(*) AS badge_count
+    FROM user_badges ub
+    JOIN eligible_users eu ON eu.user_id = ub.user_id
+    GROUP BY ub.user_id
+  )
+  SELECT t.user_id, t.total_pts,
+    COALESCE(bc.badge_count, 0) AS badge_count,
+    RANK() OVER (ORDER BY t.total_pts DESC) AS rank
+  FROM totals t
+  LEFT JOIN badge_counts bc ON bc.user_id = t.user_id
+  ORDER BY rank;
+$$;
+
+-- ─────────────────────────────────────────────────────────────
+-- RPC: get_my_points_total()
+-- ─────────────────────────────────────────────────────────────
+CREATE OR REPLACE FUNCTION get_my_points_total()
+RETURNS INT
+LANGUAGE sql
+SECURITY DEFINER
+STABLE
+AS $$
+  SELECT COALESCE(SUM(points), 0)::INT FROM points_transactions WHERE user_id = auth.uid();
 $$;

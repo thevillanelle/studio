@@ -4,7 +4,7 @@ import { supabase } from '../lib/supabase'
 import { motion, AnimatePresence } from 'framer-motion'
 import PageHeader from '../components/layout/PageHeader'
 
-const TABS = ['Friends', 'Groups', 'Feed', 'Requests']
+const TABS = ['Friends', 'Groups', 'Feed', 'Leaderboard', 'Requests']
 
 const EVENT_LABELS = {
   quiz_completed:      'completed a quiz',
@@ -256,6 +256,116 @@ function FeedTab({ feed, loading }) {
   )
 }
 
+// ─── Leaderboard Tab ─────────────────────────────────────────
+const PERIODS = ['weekly', 'monthly', 'all_time']
+const PERIOD_LABELS = { weekly: 'This week', monthly: 'This month', all_time: 'All time' }
+const MEDAL = ['🥇', '🥈', '🥉']
+
+function LeaderboardTab({ user, groups }) {
+  const [period, setPeriod]     = useState('weekly')
+  const [groupId, setGroupId]   = useState(null)
+  const [board, setBoard]       = useState([])
+  const [myPts, setMyPts]       = useState(0)
+  const [myBadges, setMyBadges] = useState([])
+  const [loading, setLoading]   = useState(true)
+
+  useEffect(() => { load() }, [period, groupId])
+  useEffect(() => { loadMyBadges() }, [])
+
+  const load = async () => {
+    setLoading(true)
+    const [lb, pts] = await Promise.all([
+      supabase.rpc('get_leaderboard', { p_group_id: groupId, p_period: period }),
+      supabase.rpc('get_my_points_total'),
+    ])
+    setBoard(lb.data || [])
+    setMyPts(pts.data || 0)
+    setLoading(false)
+  }
+
+  const loadMyBadges = async () => {
+    const { data } = await supabase
+      .from('user_badges')
+      .select('earned_at, badges(name, emoji, description)')
+      .eq('user_id', user.id)
+      .order('earned_at', { ascending: false })
+    setMyBadges(data || [])
+  }
+
+  return (
+    <div className="space-y-6">
+      {/* My stats */}
+      <div className="card flex items-center gap-4">
+        <div className="text-center flex-1">
+          <p className="section-label mb-1">Your points</p>
+          <p className="font-display text-3xl text-at-ink">{myPts.toLocaleString()}</p>
+        </div>
+        <div className="w-px h-12 bg-at-border" />
+        <div className="text-center flex-1">
+          <p className="section-label mb-1">Badges</p>
+          <p className="font-display text-3xl text-at-ink">{myBadges.length}</p>
+        </div>
+      </div>
+
+      {/* My badges */}
+      {myBadges.length > 0 && (
+        <div>
+          <p className="section-label mb-3">Your badges</p>
+          <div className="flex flex-wrap gap-2">
+            {myBadges.map((ub, i) => (
+              <div key={i} className="flex items-center gap-2 bg-at-warm rounded-xl px-3 py-2" title={ub.badges?.description}>
+                <span className="text-lg">{ub.badges?.emoji}</span>
+                <span className="text-xs font-semibold text-at-ink">{ub.badges?.name}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Period + group filters */}
+      <div className="flex gap-2 flex-wrap">
+        <div className="flex gap-1 bg-at-warm rounded-xl p-1">
+          {PERIODS.map(p => (
+            <button key={p} onClick={() => setPeriod(p)}
+              className={`text-xs font-semibold px-3 py-1.5 rounded-lg transition-colors ${period === p ? 'bg-white text-at-ink shadow-sm' : 'text-at-muted'}`}>
+              {PERIOD_LABELS[p]}
+            </button>
+          ))}
+        </div>
+        {groups.length > 0 && (
+          <select className="input text-xs py-1.5" value={groupId || ''} onChange={e => setGroupId(e.target.value || null)}>
+            <option value="">Friends leaderboard</option>
+            {groups.map(g => <option key={g.id} value={g.id}>{g.cover_emoji} {g.name}</option>)}
+          </select>
+        )}
+      </div>
+
+      {/* Board */}
+      {loading ? (
+        <p className="text-center text-at-muted font-body py-6 text-sm">Loading…</p>
+      ) : board.length === 0 ? (
+        <div className="card text-center py-10">
+          <p className="text-at-muted font-body text-sm">No points yet this period. Complete challenges to earn points.</p>
+        </div>
+      ) : (
+        <div className="space-y-2">
+          {board.map((row, i) => (
+            <div key={String(row.user_id)} className={`card flex items-center gap-3 ${row.user_id === user.id ? 'ring-1 ring-at-teal' : ''}`}>
+              <span className="text-xl w-8 text-center flex-shrink-0">{MEDAL[i] || `#${row.rank}`}</span>
+              <div className="flex-1">
+                <p className="text-sm font-semibold text-at-ink">{row.user_id === user.id ? 'You' : 'Member'}</p>
+                <p className="text-xs text-at-muted font-body">{row.badge_count} badge{row.badge_count !== 1 ? 's' : ''}</p>
+              </div>
+              <span className="font-display text-at-ink text-lg">{Number(row.total_pts).toLocaleString()}</span>
+              <span className="text-xs text-at-muted font-body">pts</span>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
+
 // ─── Requests Tab ────────────────────────────────────────────
 function RequestsTab({ user, requests, onRefresh }) {
   const accept = async (requesterId) => {
@@ -412,10 +522,11 @@ export default function Circle() {
           ))}
         </div>
 
-        {tab === 'Friends'  && <FriendsTab  user={user} friends={friends}   onRefresh={loadAll} />}
-        {tab === 'Groups'   && <GroupsTab   user={user} groups={groups}     onRefresh={loadAll} />}
-        {tab === 'Feed'     && <FeedTab     feed={feed} loading={feedLoading} />}
-        {tab === 'Requests' && <RequestsTab user={user} requests={requests} onRefresh={loadAll} />}
+        {tab === 'Friends'     && <FriendsTab     user={user} friends={friends}   onRefresh={loadAll} />}
+        {tab === 'Groups'      && <GroupsTab      user={user} groups={groups}     onRefresh={loadAll} />}
+        {tab === 'Feed'        && <FeedTab        feed={feed} loading={feedLoading} />}
+        {tab === 'Leaderboard' && <LeaderboardTab user={user} groups={groups} />}
+        {tab === 'Requests'    && <RequestsTab    user={user} requests={requests} onRefresh={loadAll} />}
       </main>
     </div>
   )
