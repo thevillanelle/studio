@@ -229,6 +229,14 @@ export default function Fire() {
 
   const updateField = async (table, id, field, value) => {
     await supabase.from(table).update({ [field]: value, updated_at: new Date().toISOString() }).eq('id', id)
+    // Award milestone points when a savings bucket hits its target
+    if (table === 'user_savings_buckets' && field === 'current') {
+      const bucket = buckets.find(b => b.id === id)
+      if (bucket && Number(value) >= bucket.target && bucket.target > 0) {
+        await supabase.rpc('add_points', { p_points: 25, p_reason: 'milestone', p_reference_id: id })
+        await supabase.rpc('award_badge', { p_badge_slug: 'enclave_architects', p_context: { bucket_name: bucket.name } })
+      }
+    }
     load()
   }
 
