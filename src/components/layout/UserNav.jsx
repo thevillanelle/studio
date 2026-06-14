@@ -17,6 +17,7 @@ function getInitials(user) {
 
 const NAV = [
   { path: '/dashboard', label: 'Dashboard',  emoji: '🏠' },
+  { path: '/fire',      label: 'FIRE',       emoji: '🔥' },
   { path: '/projects',  label: 'Projects',   emoji: '📋' },
   { path: '/circle',    label: 'My Circle',  emoji: '👥' },
   { path: '/skills',    label: 'Skills',     emoji: '🧠' },

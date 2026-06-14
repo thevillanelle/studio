@@ -304,3 +304,318 @@ CREATE TABLE IF NOT EXISTS ritual_narratives (
 ALTER TABLE ritual_narratives ENABLE ROW LEVEL SECURITY;
 DROP POLICY IF EXISTS "Users can manage own narrative" ON ritual_narratives;
 CREATE POLICY "Users can manage own narrative" ON ritual_narratives FOR ALL USING (auth.uid() = user_id);
+
+-- ─────────────────────────────────────────────────────────────────────────────
+-- RITUALWEALTH + M'ATELIER: FIRE Planning Tables
+-- ─────────────────────────────────────────────────────────────────────────────
+
+CREATE TABLE IF NOT EXISTS user_fire_plans (
+  id                UUID        PRIMARY KEY DEFAULT uuid_generate_v4(),
+  user_id           UUID        NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+  fire_type         TEXT,       -- lean_fire | regular_fire | fat_fire | barista_fire | coast_fire
+  target_number     NUMERIC,
+  target_age        SMALLINT,
+  current_age       SMALLINT,
+  monthly_surplus   NUMERIC,
+  monthly_income    NUMERIC,
+  monthly_expenses  NUMERIC,
+  current_net_worth NUMERIC,
+  notes             TEXT,
+  source            TEXT        DEFAULT 'quiz', -- 'quiz' | 'manual'
+  created_at        TIMESTAMPTZ DEFAULT NOW(),
+  updated_at        TIMESTAMPTZ DEFAULT NOW(),
+  UNIQUE (user_id)
+);
+ALTER TABLE user_fire_plans ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "Users manage own fire plan" ON user_fire_plans;
+CREATE POLICY "Users manage own fire plan" ON user_fire_plans FOR ALL USING (auth.uid() = user_id);
+
+CREATE TABLE IF NOT EXISTS user_career_tracks (
+  id            UUID        PRIMARY KEY DEFAULT uuid_generate_v4(),
+  user_id       UUID        NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+  name          TEXT        NOT NULL,
+  description   TEXT,
+  salary_min    NUMERIC,
+  salary_max    NUMERIC,
+  currency      TEXT        DEFAULT 'USD',
+  readiness_pct SMALLINT    DEFAULT 0 CHECK (readiness_pct BETWEEN 0 AND 100),
+  status        TEXT        DEFAULT 'active', -- active | paused | complete
+  notes         TEXT,
+  sort_order    SMALLINT    DEFAULT 0,
+  created_at    TIMESTAMPTZ DEFAULT NOW(),
+  updated_at    TIMESTAMPTZ DEFAULT NOW()
+);
+ALTER TABLE user_career_tracks ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "Users manage own career tracks" ON user_career_tracks;
+CREATE POLICY "Users manage own career tracks" ON user_career_tracks FOR ALL USING (auth.uid() = user_id);
+CREATE INDEX IF NOT EXISTS idx_career_tracks_user ON user_career_tracks(user_id);
+
+CREATE TABLE IF NOT EXISTS user_home_plan (
+  id                    UUID        PRIMARY KEY DEFAULT uuid_generate_v4(),
+  user_id               UUID        NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+  target_city           TEXT,
+  neighborhood          TEXT,
+  property_type         TEXT,
+  target_price          NUMERIC,
+  down_payment_target   NUMERIC,
+  down_payment_current  NUMERIC    DEFAULT 0,
+  artist_enclave        BOOLEAN    DEFAULT FALSE,
+  notes                 TEXT,
+  created_at            TIMESTAMPTZ DEFAULT NOW(),
+  updated_at            TIMESTAMPTZ DEFAULT NOW(),
+  UNIQUE (user_id)
+);
+ALTER TABLE user_home_plan ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "Users manage own home plan" ON user_home_plan;
+CREATE POLICY "Users manage own home plan" ON user_home_plan FOR ALL USING (auth.uid() = user_id);
+
+CREATE TABLE IF NOT EXISTS user_skills (
+  id            UUID        PRIMARY KEY DEFAULT uuid_generate_v4(),
+  user_id       UUID        NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+  name          TEXT        NOT NULL,
+  current_level TEXT,       -- beginner | a1 | a2 | b1 | b2 | c1 | c2 | intermediate | advanced | expert
+  target_level  TEXT,
+  practice_note TEXT,
+  sort_order    SMALLINT    DEFAULT 0,
+  created_at    TIMESTAMPTZ DEFAULT NOW(),
+  updated_at    TIMESTAMPTZ DEFAULT NOW()
+);
+ALTER TABLE user_skills ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "Users manage own skills" ON user_skills;
+CREATE POLICY "Users manage own skills" ON user_skills FOR ALL USING (auth.uid() = user_id);
+CREATE INDEX IF NOT EXISTS idx_skills_user ON user_skills(user_id);
+
+CREATE TABLE IF NOT EXISTS user_savings_buckets (
+  id            UUID        PRIMARY KEY DEFAULT uuid_generate_v4(),
+  user_id       UUID        NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+  name          TEXT        NOT NULL,
+  target        NUMERIC     NOT NULL,
+  current       NUMERIC     DEFAULT 0,
+  do_not_touch  BOOLEAN     DEFAULT FALSE,
+  notes         TEXT,
+  sort_order    SMALLINT    DEFAULT 0,
+  created_at    TIMESTAMPTZ DEFAULT NOW(),
+  updated_at    TIMESTAMPTZ DEFAULT NOW()
+);
+ALTER TABLE user_savings_buckets ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "Users manage own savings buckets" ON user_savings_buckets;
+CREATE POLICY "Users manage own savings buckets" ON user_savings_buckets FOR ALL USING (auth.uid() = user_id);
+CREATE INDEX IF NOT EXISTS idx_savings_buckets_user ON user_savings_buckets(user_id);
+
+CREATE TABLE IF NOT EXISTS user_contingency_rules (
+  id          UUID        PRIMARY KEY DEFAULT uuid_generate_v4(),
+  user_id     UUID        NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+  trigger     TEXT        NOT NULL,
+  action      TEXT        NOT NULL,
+  enabled     BOOLEAN     DEFAULT TRUE,
+  sort_order  SMALLINT    DEFAULT 0,
+  created_at  TIMESTAMPTZ DEFAULT NOW(),
+  updated_at  TIMESTAMPTZ DEFAULT NOW()
+);
+ALTER TABLE user_contingency_rules ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "Users manage own contingency rules" ON user_contingency_rules;
+CREATE POLICY "Users manage own contingency rules" ON user_contingency_rules FOR ALL USING (auth.uid() = user_id);
+CREATE INDEX IF NOT EXISTS idx_contingency_rules_user ON user_contingency_rules(user_id);
+
+-- Quiz results from Ritualwealth (raw answers + derived plan snapshot)
+CREATE TABLE IF NOT EXISTS fire_quiz_results (
+  id          UUID        PRIMARY KEY DEFAULT uuid_generate_v4(),
+  user_id     UUID        NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+  quiz_slug   TEXT        NOT NULL, -- fire_type | career | home | creative | risk
+  answers     JSONB       DEFAULT '{}',
+  result      JSONB       DEFAULT '{}',
+  created_at  TIMESTAMPTZ DEFAULT NOW()
+);
+ALTER TABLE fire_quiz_results ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "Users manage own quiz results" ON fire_quiz_results;
+CREATE POLICY "Users manage own quiz results" ON fire_quiz_results FOR ALL USING (auth.uid() = user_id);
+CREATE INDEX IF NOT EXISTS idx_fire_quiz_results_user ON fire_quiz_results(user_id);
+
+-- ─────────────────────────────────────────────────────────────────────────────
+-- ROBIN: Internal analytics RPC functions
+-- All run as SECURITY DEFINER (service role) and return only aggregates.
+-- Admin gate: caller must be the registered admin email.
+-- Min cohort: any bucket with < 50 members is suppressed before returning.
+-- ─────────────────────────────────────────────────────────────────────────────
+
+-- Helper: verify caller is admin (replace email if yours changes)
+CREATE OR REPLACE FUNCTION robin_is_admin()
+RETURNS BOOLEAN
+LANGUAGE sql
+SECURITY DEFINER
+STABLE
+AS $$
+  SELECT EXISTS (
+    SELECT 1 FROM auth.users
+    WHERE id = auth.uid()
+    AND email = 'krystine.hall@gmail.com'
+  )
+$$;
+
+-- Overview: total users, completion rates per quiz, avg formality
+CREATE OR REPLACE FUNCTION robin_overview()
+RETURNS JSON
+LANGUAGE sql
+SECURITY DEFINER
+STABLE
+AS $$
+  SELECT CASE WHEN NOT robin_is_admin() THEN '{"error":"unauthorized"}'::json ELSE
+  json_build_object(
+    'total_users',           (SELECT COUNT(DISTINCT user_id) FROM style_profiles),
+    'with_style_profile',    (SELECT COUNT(*) FROM style_profiles WHERE kibbe_type IS NOT NULL),
+    'with_glow_up',          (SELECT COUNT(DISTINCT user_id) FROM glow_up_results),
+    'with_style_finder',     (SELECT COUNT(DISTINCT user_id) FROM style_finder_results),
+    'with_neighborhood',     (SELECT COUNT(DISTINCT user_id) FROM neighborhood_results),
+    'with_dating_profile',   (SELECT COUNT(DISTINCT user_id) FROM dating_profiles),
+    'with_narrative',        (SELECT COUNT(*) FROM ritual_narratives),
+    'avg_lifestyle_formality',(SELECT ROUND(AVG(lifestyle_formality)::numeric, 1) FROM style_profiles WHERE lifestyle_formality IS NOT NULL),
+    'total_saved_looks',     (SELECT COUNT(*) FROM saved_looks),
+    'total_style_rules',     (SELECT COUNT(*) FROM style_rules)
+  ) END
+$$;
+
+-- Distribution: any TEXT column on style_profiles, suppresses buckets < 50
+CREATE OR REPLACE FUNCTION robin_distribution(col_name TEXT)
+RETURNS JSON
+LANGUAGE plpgsql
+SECURITY DEFINER
+STABLE
+AS $$
+DECLARE
+  result JSON;
+  min_cohort INT := 50;
+BEGIN
+  IF NOT robin_is_admin() THEN RETURN '{"error":"unauthorized"}'::json; END IF;
+  IF col_name NOT IN (
+    'kibbe_type','color_season','undertone','metal_preference',
+    'trend_stance','statement_vs_cohesive','matching_philosophy',
+    'heel_preference','skin_showing_stance','lip_preference','lip_logic',
+    'nail_shape','jewelry_default','default_reach','lifestyle_formality',
+    'preferred_output'
+  ) THEN RETURN '{"error":"invalid column"}'::json; END IF;
+
+  EXECUTE format(
+    'SELECT json_agg(row_to_json(t)) FROM (
+       SELECT %I AS value, COUNT(*)::int AS n
+       FROM style_profiles
+       WHERE %I IS NOT NULL
+       GROUP BY %I
+       HAVING COUNT(*) >= $1
+       ORDER BY COUNT(*) DESC
+     ) t',
+    col_name, col_name, col_name
+  ) USING min_cohort INTO result;
+
+  RETURN COALESCE(result, '[]'::json);
+END;
+$$;
+
+-- Array column distribution (unnests TEXT[] columns)
+CREATE OR REPLACE FUNCTION robin_array_distribution(col_name TEXT)
+RETURNS JSON
+LANGUAGE plpgsql
+SECURITY DEFINER
+STABLE
+AS $$
+DECLARE
+  result JSON;
+  min_cohort INT := 50;
+BEGIN
+  IF NOT robin_is_admin() THEN RETURN '{"error":"unauthorized"}'::json; END IF;
+  IF col_name NOT IN (
+    'era_references','palette_loves','palette_avoids','fabric_loves',
+    'fabric_avoids','style_words','designers_loved','fragrance_family',
+    'social_contexts'
+  ) THEN RETURN '{"error":"invalid column"}'::json; END IF;
+
+  EXECUTE format(
+    'SELECT json_agg(row_to_json(t)) FROM (
+       SELECT val AS value, COUNT(DISTINCT user_id)::int AS n
+       FROM style_profiles, unnest(%I) AS val
+       GROUP BY val
+       HAVING COUNT(DISTINCT user_id) >= $1
+       ORDER BY COUNT(DISTINCT user_id) DESC
+       LIMIT 20
+     ) t',
+    col_name
+  ) USING min_cohort INTO result;
+
+  RETURN COALESCE(result, '[]'::json);
+END;
+$$;
+
+-- Glow Up tier distribution
+CREATE OR REPLACE FUNCTION robin_glow_tiers()
+RETURNS JSON
+LANGUAGE sql
+SECURITY DEFINER
+STABLE
+AS $$
+  SELECT CASE WHEN NOT robin_is_admin() THEN '{"error":"unauthorized"}'::json ELSE (
+    SELECT COALESCE(json_agg(row_to_json(t)), '[]'::json) FROM (
+      SELECT result->>'overall_tier' AS tier, COUNT(*)::int AS n
+      FROM glow_up_results
+      WHERE result->>'overall_tier' IS NOT NULL
+      GROUP BY result->>'overall_tier'
+      HAVING COUNT(*) >= 50
+      ORDER BY COUNT(*) DESC
+    ) t
+  ) END
+$$;
+
+-- Style Finder archetype distribution
+CREATE OR REPLACE FUNCTION robin_archetypes()
+RETURNS JSON
+LANGUAGE sql
+SECURITY DEFINER
+STABLE
+AS $$
+  SELECT CASE WHEN NOT robin_is_admin() THEN '{"error":"unauthorized"}'::json ELSE (
+    SELECT COALESCE(json_agg(row_to_json(t)), '[]'::json) FROM (
+      SELECT result->>'persona_name' AS archetype, COUNT(*)::int AS n
+      FROM style_finder_results
+      WHERE result->>'persona_name' IS NOT NULL
+      GROUP BY result->>'persona_name'
+      HAVING COUNT(*) >= 50
+      ORDER BY COUNT(*) DESC
+    ) t
+  ) END
+$$;
+
+-- Top neighborhoods
+CREATE OR REPLACE FUNCTION robin_neighborhoods()
+RETURNS JSON
+LANGUAGE sql
+SECURITY DEFINER
+STABLE
+AS $$
+  SELECT CASE WHEN NOT robin_is_admin() THEN '{"error":"unauthorized"}'::json ELSE (
+    SELECT COALESCE(json_agg(row_to_json(t)), '[]'::json) FROM (
+      SELECT top_neighborhood AS value, COUNT(*)::int AS n
+      FROM neighborhood_results
+      WHERE top_neighborhood IS NOT NULL
+      GROUP BY top_neighborhood
+      HAVING COUNT(*) >= 50
+      ORDER BY COUNT(*) DESC
+      LIMIT 15
+    ) t
+  ) END
+$$;
+
+-- Weekly new users (last 12 weeks)
+CREATE OR REPLACE FUNCTION robin_growth()
+RETURNS JSON
+LANGUAGE sql
+SECURITY DEFINER
+STABLE
+AS $$
+  SELECT CASE WHEN NOT robin_is_admin() THEN '{"error":"unauthorized"}'::json ELSE (
+    SELECT COALESCE(json_agg(row_to_json(t) ORDER BY t.week), '[]'::json) FROM (
+      SELECT DATE_TRUNC('week', created_at)::date AS week, COUNT(*)::int AS n
+      FROM style_profiles
+      WHERE created_at >= NOW() - INTERVAL '12 weeks'
+      GROUP BY DATE_TRUNC('week', created_at)
+      ORDER BY week
+    ) t
+  ) END
+$$;

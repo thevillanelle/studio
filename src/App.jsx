@@ -11,6 +11,7 @@ import Skills       from './pages/Skills'
 import Goals        from './pages/Goals'
 import Discover     from './pages/Discover'
 import AuthCallback from './pages/AuthCallback'
+import Fire         from './pages/Fire'
 
 export default function App() {
   const { initialize } = useAuthStore()
@@ -27,6 +28,7 @@ export default function App() {
         <Route path="/skills"        element={<Skills />} />
         <Route path="/goals"         element={<Goals />} />
         <Route path="/discover"      element={<Discover />} />
+        <Route path="/fire"          element={<Fire />} />
         <Route path="/auth/callback" element={<AuthCallback />} />
         <Route path="*"              element={<Navigate to="/" replace />} />
       </Routes>
