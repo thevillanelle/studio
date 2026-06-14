@@ -169,13 +169,11 @@ CREATE INDEX IF NOT EXISTS idx_saved_looks_user_id ON saved_looks(user_id);
 -- TABLE: neighborhood_results (Ritualwhere — quiz saves)
 -- ─────────────────────────────────────────────────────────────
 CREATE TABLE IF NOT EXISTS neighborhood_results (
-  id                 UUID        PRIMARY KEY DEFAULT uuid_generate_v4(),
-  user_id            UUID        NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
-  top_neighborhood   TEXT        NOT NULL,
-  score              INTEGER,
-  all_results        JSONB,
-  city               TEXT        DEFAULT 'NYC',
-  created_at         TIMESTAMPTZ DEFAULT NOW()
+  id          UUID        PRIMARY KEY DEFAULT uuid_generate_v4(),
+  user_id     UUID        NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+  top_match   TEXT        NOT NULL,
+  answers     JSONB,
+  created_at  TIMESTAMPTZ DEFAULT NOW()
 );
 ALTER TABLE neighborhood_results ENABLE ROW LEVEL SECURITY;
 DROP POLICY IF EXISTS "Users can manage own neighborhood results" ON neighborhood_results;
@@ -591,10 +589,10 @@ STABLE
 AS $$
   SELECT CASE WHEN NOT robin_is_admin() THEN '{"error":"unauthorized"}'::json ELSE (
     SELECT COALESCE(json_agg(row_to_json(t)), '[]'::json) FROM (
-      SELECT top_neighborhood AS value, COUNT(*)::int AS n
+      SELECT top_match AS value, COUNT(*)::int AS n
       FROM neighborhood_results
-      WHERE top_neighborhood IS NOT NULL
-      GROUP BY top_neighborhood
+      WHERE top_match IS NOT NULL
+      GROUP BY top_match
       HAVING COUNT(*) >= 50
       ORDER BY COUNT(*) DESC
       LIMIT 15
