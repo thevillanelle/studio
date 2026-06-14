@@ -26,9 +26,10 @@ const NAV = [
 
 const OTHER_APPS = [
   { url: 'https://where.ritualware.app/profile', label: 'My Ritual Profile', emoji: '👤' },
-  { url: 'https://wear.ritualware.app',                      label: 'Ritualwear',  emoji: '👗' },
-  { url: 'https://glowup.ritualware.app', label: 'Glow Up',     emoji: '🔺' },
-  { url: 'https://where.ritualware.app',                            label: 'Ritualwhere?', emoji: '📍' },
+  { url: 'https://wear.ritualware.app',          label: 'Ritualwear',        emoji: '👗' },
+  { url: 'https://glowup.ritualware.app',        label: 'Glow Up',           emoji: '🔺' },
+  { url: 'https://where.ritualware.app',         label: 'Ritualwhere?',      emoji: '📍' },
+  { url: 'https://wealth.ritualware.app',        label: 'Ritualwealth',      emoji: '💰' },
 ]
 
 export default function UserNav() {

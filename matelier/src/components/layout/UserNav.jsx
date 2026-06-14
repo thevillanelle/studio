@@ -23,9 +23,10 @@ const NAV = [
 ]
 
 const OTHER_APPS = [
-  { url: 'https://vile-style-oracle.vercel.app',                      label: 'Ritualwear',  emoji: '👗' },
-  { url: 'https://glow-jdebrhgz1-thevillanelles-projects.vercel.app', label: 'Glow Up',     emoji: '🔺' },
-  { url: 'https://ritualwhere.vercel.app',                            label: 'Ritualwhere?', emoji: '📍' },
+  { url: 'https://wear.ritualware.app',   label: 'Ritualwear',   emoji: '👗' },
+  { url: 'https://glowup.ritualware.app', label: 'Glow Up',      emoji: '🔺' },
+  { url: 'https://where.ritualware.app',  label: 'Ritualwhere?', emoji: '📍' },
+  { url: 'https://wealth.ritualware.app', label: 'Ritualwealth', emoji: '💰' },
 ]
 
 export default function UserNav() {
