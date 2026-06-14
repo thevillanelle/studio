@@ -655,14 +655,7 @@ CREATE TABLE IF NOT EXISTS groups (
   created_at   TIMESTAMPTZ DEFAULT NOW()
 );
 ALTER TABLE groups ENABLE ROW LEVEL SECURITY;
-DROP POLICY IF EXISTS "Group members can read groups" ON groups;
 DROP POLICY IF EXISTS "Group admins manage groups" ON groups;
-CREATE POLICY "Group members can read groups" ON groups FOR SELECT
-  USING (
-    privacy = 'public'
-    OR created_by = auth.uid()
-    OR EXISTS (SELECT 1 FROM group_members gm WHERE gm.group_id = id AND gm.user_id = auth.uid() AND gm.status = 'active')
-  );
 CREATE POLICY "Group admins manage groups" ON groups FOR ALL
   USING (created_by = auth.uid());
 CREATE INDEX IF NOT EXISTS idx_groups_created_by ON groups(created_by);
@@ -692,6 +685,15 @@ CREATE POLICY "Admins manage group membership" ON group_members FOR ALL
   ) OR user_id = auth.uid());
 CREATE INDEX IF NOT EXISTS idx_group_members_group ON group_members(group_id);
 CREATE INDEX IF NOT EXISTS idx_group_members_user  ON group_members(user_id);
+
+-- groups SELECT policy deferred until after group_members exists
+DROP POLICY IF EXISTS "Group members can read groups" ON groups;
+CREATE POLICY "Group members can read groups" ON groups FOR SELECT
+  USING (
+    privacy = 'public'
+    OR created_by = auth.uid()
+    OR EXISTS (SELECT 1 FROM group_members gm WHERE gm.group_id = id AND gm.user_id = auth.uid() AND gm.status = 'active')
+  );
 
 -- ─────────────────────────────────────────────────────────────
 -- TABLE: activity_feed
