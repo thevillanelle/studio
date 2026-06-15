@@ -4,6 +4,7 @@ import { motion, AnimatePresence } from 'framer-motion'
 import { useAuthStore } from '../../stores/useAuthStore'
 import AuthModal from '../AuthModal'
 import ThemeToggle from '../ThemeToggle'
+import NotificationBell from '../NotificationBell'
 
 function getInitials(user) {
   if (!user) return null
@@ -22,6 +23,8 @@ const NAV = [
   { path: '/circle',    label: 'My Circle',  emoji: '👥' },
   { path: '/skills',    label: 'Skills',     emoji: '🧠' },
   { path: '/goals',     label: 'Goals',      emoji: '🎯' },
+  { path: '/friends',   label: 'Friends',    emoji: '🤝' },
+  { path: '/feed',      label: 'Feed',       emoji: '📡' },
 ]
 
 const OTHER_APPS = [
@@ -43,6 +46,9 @@ export default function UserNav() {
 
   return (
     <>
+      <div className="fixed top-4 right-16 z-40">
+        <NotificationBell />
+      </div>
       <button
         onClick={() => setOpen(true)}
         className="fixed top-4 right-4 z-40 flex items-center justify-center w-10 h-10 rounded-full shadow-lg transition-all hover:scale-105 active:scale-95"
