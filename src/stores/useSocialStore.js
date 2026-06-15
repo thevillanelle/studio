@@ -13,7 +13,7 @@ export const useSocialStore = create((set, get) => ({
   loadFriends: async (userId) => {
     const { data } = await supabase
       .from('friendships')
-      .select('*')
+      .select('*, requester:requester_id(id, email, raw_user_meta_data), addressee:addressee_id(id, email, raw_user_meta_data)')
       .or(`requester_id.eq.${userId},addressee_id.eq.${userId}`)
       .eq('status', 'accepted')
     set({ friends: data ?? [] })

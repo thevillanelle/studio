@@ -5,6 +5,7 @@ import { supabase } from '../lib/supabase'
 import { motion } from 'framer-motion'
 import { AnimatePresence } from 'framer-motion'
 import AuthModal from '../components/AuthModal'
+import ThemeToggle from '../components/ThemeToggle'
 
 const STATUS_BADGE = {
   active:    { label: 'Active',    cls: 'badge-active' },

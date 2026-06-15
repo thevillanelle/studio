@@ -1197,3 +1197,18 @@ STABLE
 AS $$
   SELECT COALESCE(SUM(points), 0)::INT FROM points_transactions WHERE user_id = auth.uid();
 $$;
+
+-- ─────────────────────────────────────────────────────────────
+-- RPC: lookup_user_by_email(email_input)
+-- Returns the auth.uid for a given email — used by Friends invite flow.
+-- SECURITY DEFINER so the client-side anon key can safely call it
+-- without direct access to auth.users.
+-- ─────────────────────────────────────────────────────────────
+CREATE OR REPLACE FUNCTION lookup_user_by_email(email_input TEXT)
+RETURNS UUID
+LANGUAGE sql
+SECURITY DEFINER
+STABLE
+AS $$
+  SELECT id FROM auth.users WHERE email = email_input LIMIT 1;
+$$;

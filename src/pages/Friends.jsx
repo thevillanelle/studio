@@ -42,20 +42,17 @@ export default function Friends() {
     setSending(true)
     setMsg(null)
 
-    // Look up user by email
-    const { data: profile } = await supabase
-      .from('auth.users')
-      .select('id')
-      .eq('email', email.trim())
-      .single()
+    // Look up user by email via server-side RPC (auth.users is not client-accessible)
+    const { data: userId, error: lookupError } = await supabase
+      .rpc('lookup_user_by_email', { email_input: email.trim() })
 
-    if (!profile) {
+    if (lookupError || !userId) {
       setMsg({ error: true, text: 'No Ritualware account found for that email.' })
       setSending(false)
       return
     }
 
-    const { data, error } = await sendFriendRequest(profile.id)
+    const { data, error } = await sendFriendRequest(userId)
     if (error || data?.error) {
       setMsg({ error: true, text: data?.error || 'Something went wrong.' })
     } else {
@@ -138,13 +135,14 @@ export default function Friends() {
               <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
                 {friends.map(f => {
                   const isRequester = f.requester_id === user.id
-                  const otherId     = isRequester ? f.addressee_id : f.requester_id
+                  const other       = isRequester ? f.addressee : f.requester
+                  const name        = other?.raw_user_meta_data?.full_name || other?.raw_user_meta_data?.name || other?.email || 'Ritual member'
                   return (
                     <div key={f.id} style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-                      <Avatar name={otherId} size={36} />
+                      <Avatar name={name} size={36} />
                       <div style={{ flex: 1 }}>
-                        <p className="font-display text-sm" style={{ color: 'var(--ink)' }}>Connected</p>
-                        <p className="text-xs font-body font-mono" style={{ color: 'var(--ink-muted)', fontSize: '0.6rem' }}>{otherId}</p>
+                        <p className="font-display text-sm" style={{ color: 'var(--ink)' }}>{name}</p>
+                        <p className="text-xs font-body" style={{ color: 'var(--ink-muted)' }}>{other?.email}</p>
                       </div>
                       <button onClick={() => unfriend(f.id)} className="btn-ghost text-xs" style={{ padding: '0.4rem 0.875rem', color: '#C4717A' }}>Remove</button>
                     </div>
