@@ -26,6 +26,7 @@ export default function Welcome() {
   }, [user, loading])
 
   return (
+    <>
     <div style={{position:'fixed',top:'16px',right:'16px',zIndex:50}}><ThemeToggle /></div>
     <div className="min-h-screen flex flex-col items-center justify-center px-6 py-16 relative overflow-hidden"
       style={{ background: 'linear-gradient(160deg, #FAFAF8 0%, #F0FDF9 100%)' }}>
@@ -73,5 +74,6 @@ export default function Welcome() {
 
       <AnimatePresence>{showAuth && <AuthModal onClose={() => setShowAuth(false)} />}</AnimatePresence>
     </div>
+    </>
   )
 }
