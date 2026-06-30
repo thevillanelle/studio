@@ -4,6 +4,7 @@ import { motion, AnimatePresence } from 'framer-motion'
 import { useAuthStore } from '../../stores/useAuthStore'
 import AuthModal from '../AuthModal'
 import ThemeToggle from '../ThemeToggle'
+import { goToRobinProfile } from '../../lib/robinHandoff'
 
 function getInitials(user) {
   if (!user) return null
@@ -25,10 +26,10 @@ const NAV = [
 ]
 
 const OTHER_APPS = [
-  { url: 'https://where.ritualware.app/profile', label: 'My Ritual Profile', emoji: '👤' },
-  { url: 'https://wear.ritualware.app',                      label: 'Ritualwear',  emoji: '👗' },
-  { url: 'https://glowup.ritualware.app', label: 'Glow Up',     emoji: '🔺' },
-  { url: 'https://where.ritualware.app',                            label: 'Ritualwhere?', emoji: '📍' },
+  { url: 'https://wear.ritualware.app',   label: 'Ritualwear',   emoji: '👗' },
+  { url: 'https://glowup.ritualware.app', label: 'Glow Up',      emoji: '🔺' },
+  { url: 'https://where.ritualware.app',  label: 'Ritualwhere?', emoji: '📍' },
+  { url: 'https://wealth.ritualware.app', label: 'Ritualwealth', emoji: '💰' },
 ]
 
 export default function UserNav() {
@@ -92,6 +93,10 @@ export default function UserNav() {
                       <span className="text-base">{link.emoji}</span>{link.label}
                     </button>
                   ))}
+                  <button onClick={() => { goToRobinProfile(); setOpen(false) }}
+                    className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-colors text-left text-at-plum hover:bg-at-warm">
+                    <span className="text-base">👤</span>My Ritual Profile
+                  </button>
                 </div>
                 <p className="text-xs font-semibold text-at-muted uppercase tracking-wider mb-2">Ritualware suite</p>
                 <div className="space-y-1">
