@@ -39,7 +39,7 @@ export default function Welcome() {
         {/* Name */}
         <motion.div variants={rise} className="text-center mb-2">
           <h1 className="font-display text-at-ink leading-[0.9]"
-            style={{ fontSize: 'clamp(4rem, 14vw, 8rem)' }}>
+            style={{ fontSize: 'clamp(3rem, 8vw, 5.5rem)' }}>
             m'atelier
           </h1>
         </motion.div>
